@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  cell-router-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Cell Router Monitoring",
+        "panels": [
+          {
+            "title": "Request Rate by Cell",
+            "targets": [
+              {
+                "expr": "sum(rate(router_requests_total[5m])) by (cell_id)"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "title": "Error Rate by Cell",
+            "targets": [
+              {
+                "expr": "(sum(rate(router_requests_total{status=~\"5..\"}[5m])) by (cell_id) / sum(rate(router_requests_total[5m])) by (cell_id)) * 100"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "title": "Request Duration P95",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le))"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "title": "Upstream Errors",
+            "targets": [
+              {
+                "expr": "sum(rate(router_upstream_errors_total[5m])) by (upstream)"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          },
+          {
+            "title": "NGINX Request Rate",
+            "targets": [
+              {
+                "expr": "sum(rate(nginx_http_requests_total[5m])) by (instance)"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+          },
+          {
+            "title": "NGINX Active Connections",
+            "targets": [
+              {
+                "expr": "nginx_connections_active"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+          }
+        ]
+      }
+    }

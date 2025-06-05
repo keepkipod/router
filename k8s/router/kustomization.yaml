@@ -1,0 +1,23 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: router
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - serviceaccount.yaml
+  - ingress.yaml
+  - networkpolicy.yaml
+  - pdb.yaml
+  - hpa.yaml
+
+commonLabels:
+  app.kubernetes.io/name: router
+  app.kubernetes.io/instance: production
+  app.kubernetes.io/component: api
+  app.kubernetes.io/part-of: cell-router
+
+images:
+- name: router
+  newTag: latest

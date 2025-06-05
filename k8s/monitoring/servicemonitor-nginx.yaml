@@ -1,0 +1,59 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nginx-monitor
+  namespace: monitoring
+  labels:
+    app: nginx
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: nginx-1
+  namespaceSelector:
+    matchNames:
+    - nginx
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nginx-2-monitor
+  namespace: monitoring
+  labels:
+    app: nginx
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: nginx-2
+  namespaceSelector:
+    matchNames:
+    - nginx
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: nginx-3-monitor
+  namespace: monitoring
+  labels:
+    app: nginx
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: nginx-3
+  namespaceSelector:
+    matchNames:
+    - nginx
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s

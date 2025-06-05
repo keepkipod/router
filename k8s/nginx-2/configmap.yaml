@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-2-config
+  namespace: nginx
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        
+        # Enable nginx status for prometheus exporter
+        location /nginx_status {
+            stub_status on;
+            access_log off;
+            allow 127.0.0.1;
+            deny all;
+        }
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        # Main application
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            
+            # CORS headers
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+            add_header Access-Control-Allow-Headers "Origin, Content-Type, Accept";
+            
+            # Security headers
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+            
+            # Custom headers to identify the cell
+            add_header X-Cell-ID "2" always;
+            add_header X-Server-Instance "nginx-2" always;
+        }
+        
+        # Handle POST requests with JSON response
+        location /api {
+            if ($request_method = 'POST') {
+                add_header Content-Type application/json;
+                return 200 '{"cellID": "2", "server": "nginx-2", "message": "Request processed by NGINX instance 2"}';
+            }
+            return 405;
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-2-html
+  namespace: nginx
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>NGINX Cell 2</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f0f0f0;
+            }
+            .container {
+                text-align: center;
+                padding: 40px;
+                background-color: white;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            h1 { color: #333; }
+            .cell-id { 
+                font-size: 48px; 
+                color: #007bff;
+                margin: 20px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>NGINX Instance</h1>
+            <div class="cell-id">Cell ID: 2</div>
+            <p>This is NGINX deployment for Cell 2</p>
+        </div>
+    </body>
+    </html>

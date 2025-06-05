@@ -1,0 +1,208 @@
+version: '3'
+
+vars:
+  CLUSTER_NAME: abc
+  APP_NAME: router
+  APP_NAMESPACE: router
+  ARGOCD_VERSION: v2.9.3
+
+tasks:
+  deploy-cluster:
+    cmds:
+      - kind create cluster --name {{.CLUSTER_NAME}} --config ./kind-config.yaml
+
+  wait-for-cluster:
+    cmds:
+      - kubectl wait --for=condition=ready node --all --timeout=300s
+
+  install-argocd-cli:
+    cmds:
+      - |
+        if ! command -v argocd &> /dev/null; then
+          echo "Installing ArgoCD CLI..."
+          curl -sSL -o /tmp/argocd https://github.com/argoproj/argo-cd/releases/download/{{.ARGOCD_VERSION}}/argocd-linux-amd64
+          chmod +x /tmp/argocd
+          sudo mv /tmp/argocd /usr/local/bin/argocd
+        else
+          echo "ArgoCD CLI is already installed"
+        fi
+
+  deploy-argocd:
+    cmds:
+      - echo "Installing ArgoCD..."
+      - kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+      - helm repo add argo https://argoproj.github.io/argo-helm
+      - helm repo update
+      - helm upgrade --install argocd argo/argo-cd --namespace argocd --values ./k8s/argocd/argocd-values.yaml --wait
+      - echo "Waiting for ArgoCD to be ready..."
+      - kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+
+  get-argocd-password:
+    cmds:
+      - echo "ArgoCD admin password:"
+      - kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+      - echo ""
+
+  port-forward-argocd:
+    cmds:
+      - echo "Port forwarding to ArgoCD..."
+      - echo "ArgoCD UI will be available at http://localhost:8081"
+      - echo "Username = admin"
+      - task: get-argocd-password
+      - echo ""
+      - echo "Press Ctrl+C to stop port forwarding"
+      - kubectl port-forward svc/argocd-server -n argocd 8081:80
+
+  bootstrap-apps:
+    cmds:
+      - echo "Bootstrapping applications with ArgoCD..."
+      - kubectl apply -f ./k8s/argocd/app-of-apps.yaml
+      - echo "Applications are being deployed. Check ArgoCD UI for status."
+
+  sync-all-apps:
+    cmds:
+      - argocd app sync app-of-apps --grpc-web --insecure --server localhost:8081
+      - argocd app sync -l argocd.argoproj.io/instance=app-of-apps --grpc-web --insecure --server localhost:8081
+
+  get-apps-status:
+    cmds:
+      - kubectl get applications -n argocd
+      - echo ""
+      - argocd app list --grpc-web --insecure --server localhost:8081 || echo "Make sure ArgoCD is port-forwarded on port 8081"
+
+  build-app:
+    cmds:
+      - docker build -t {{.APP_NAME}}:latest ./router
+      - kind load docker-image {{.APP_NAME}}:latest --name {{.CLUSTER_NAME}}
+
+  deploy-app:
+    cmds:
+      - helm upgrade --install {{.APP_NAME}} ./k8s/app-helm --create-namespace --namespace {{.APP_NAMESPACE}}
+      - kubectl rollout status deployment/{{.APP_NAME}} --namespace {{.APP_NAMESPACE}} --timeout=3m
+
+  wait-for-app:
+    cmds:
+      - echo "Waiting for application to be fully ready..."
+      - kubectl wait --for=condition=available deployment/{{.APP_NAME}} --namespace {{.APP_NAMESPACE}} --timeout=60s
+      - sleep 10
+
+  port-forward-app:
+    cmds:
+      - echo "Port forwarding to application..."
+      - echo "Application will be available at http://localhost:5000"
+      - echo "Press Ctrl+C to stop port forwarding"
+      - kubectl -n {{.APP_NAMESPACE}} port-forward svc/{{.APP_NAME}} 5000:5000
+
+  port-forward-bg:
+    cmds:
+      - kubectl -n {{.APP_NAMESPACE}} port-forward svc/{{.APP_NAME}} 5000:5000 &
+      - sleep 5
+
+  status:
+    cmds:
+      - echo "=== Cluster Status ==="
+      - kubectl get nodes
+      - echo ""
+      - echo "=== ArgoCD Applications ==="
+      - kubectl get applications -n argocd
+      - echo ""
+      - echo "=== All Namespaces ==="
+      - kubectl get namespaces
+      - echo ""
+      - echo "=== Application Pods ==="
+      - kubectl get pods -n {{.APP_NAMESPACE}}
+      - echo ""
+      - echo "=== Services ==="
+      - kubectl get svc -A
+
+  logs:
+    cmds:
+      - kubectl logs -n {{.APP_NAMESPACE}} deployment/{{.APP_NAME}} -f
+
+  uninstall-app:
+    cmds:
+      - helm uninstall {{.APP_NAME}} -n {{.APP_NAMESPACE}} || true
+      - helm uninstall my-postgres -n {{.APP_NAMESPACE}} || true
+      - kubectl delete namespace {{.APP_NAMESPACE}} || true
+
+  clean:
+    cmds:
+      - kind delete cluster --name {{.CLUSTER_NAME}}
+
+  # New deployment flow with ArgoCD
+  deploy-all-argocd:
+    cmds:
+      - task: deploy-cluster
+      - task: wait-for-cluster
+      - task: install-argocd-cli
+      - task: deploy-argocd
+      - task: bootstrap-apps
+      - task: print-helper-argocd
+
+  # Original deployment flow (without ArgoCD)
+  deploy-all:
+    cmds:
+      - task: deploy-cluster
+      - task: wait-for-cluster
+      - task: build-app
+      - task: deploy-app
+      - task: wait-for-app
+      - task: print-helper
+
+  print-helper-argocd:
+    cmds:
+      - echo "====================================="
+      - echo "ArgoCD deployment completed!"
+      - echo "====================================="
+      - echo ""
+      - echo "To access ArgoCD UI:"
+      - echo "  task port-forward-argocd"
+      - echo ""
+      - echo "To check application status:"
+      - echo "  task get-apps-status"
+      - echo ""
+      - echo "To sync all applications:"
+      - echo "  task sync-all-apps"
+      - echo ""
+      - echo "To view overall status:"
+      - echo "  task status"
+      - echo "====================================="
+
+  print-helper:
+    cmds:
+      - echo "====================================="
+      - echo "Deployment completed!"
+      - echo "====================================="
+      - echo ""
+      - echo "To access the application:"
+      - echo "  task port-forward-app"
+      - echo ""
+      - echo "To view logs:"
+      - echo "  task logs"
+      - echo ""
+      - echo "To check status:"
+      - echo "  task status"
+      - echo "====================================="
+
+  port-forward-ingress-bg:
+    cmds:
+      - kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80 &
+      - sleep 5
+
+  get-ingress-info:
+    cmds:
+      - echo "=== Ingress Status ==="
+      - kubectl get ingress -n {{.APP_NAMESPACE}}
+      - echo ""
+      - echo "=== Ingress Details ==="
+      - kubectl describe ingress -n {{.APP_NAMESPACE}} || echo "No ingress found"
+      - echo ""
+      - echo "=== NodePort for ingress-nginx ==="
+      - kubectl get svc -n ingress-nginx
+
+  port-forward-ingress:
+    cmds:
+      - echo "Port forwarding to ingress controller..."
+      - echo "Application will be available at http://localhost:8080"
+      - echo "Press Ctrl+C to stop port forwarding"
+      - kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80
