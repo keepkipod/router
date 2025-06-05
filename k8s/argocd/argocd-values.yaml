@@ -1,6 +1,10 @@
 configs:
   params:
     server.insecure: true
+    # Reduce memory usage by limiting concurrent operations
+    controller.operation.processors: "5"
+    controller.status.processors: "10"
+    controller.self.heal.timeout.seconds: "10"
   cm:
     resource.customizations: |
       networking.k8s.io/Ingress:
@@ -8,7 +12,33 @@ configs:
           hs = {}
           hs.status = "Healthy"
           return hs
+    # Reduce resource tracking load
+    timeout.reconciliation: "180s"
+    timeout.hard.reconciliation: "0s"
 
+# Controller configuration with proper resources
+controller:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  # Reduce parallel processing to save memory
+  parallelismLimit: 10
+
+# Redis configuration
+redis:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Server configuration
 server:
   extraArgs:
     - --insecure
@@ -16,3 +46,32 @@ server:
     type: NodePort
     nodePortHttp: 30080
     nodePortHttps: 30443
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+# Repo server configuration
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # Increase parallelism for repo operations
+  parallelismLimit: 5
+
+# Disable components we don't need to save resources
+dex:
+  enabled: false
+
+applicationSet:
+  enabled: false
+
+notifications:
+  enabled: false

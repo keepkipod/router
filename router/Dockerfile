@@ -1,5 +1,5 @@
 # Use multi-stage build for smaller image
-FROM python:3.13-alpine AS builder
+FROM python:3.13-slim AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Final stage
-FROM python:3.13-alpine
+FROM python:3.13-slim
 
 WORKDIR /app
 
