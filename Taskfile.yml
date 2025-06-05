@@ -77,7 +77,7 @@ tasks:
 
   deploy-app:
     cmds:
-      - helm upgrade --install {{.APP_NAME}} ./k8s/app-helm --create-namespace --namespace {{.APP_NAMESPACE}}
+      - helm upgrade --install {{.APP_NAME}} ./k8s/router --create-namespace --namespace {{.APP_NAMESPACE}}
       - kubectl rollout status deployment/{{.APP_NAME}} --namespace {{.APP_NAMESPACE}} --timeout=3m
 
   wait-for-app:
@@ -122,8 +122,6 @@ tasks:
   uninstall-app:
     cmds:
       - helm uninstall {{.APP_NAME}} -n {{.APP_NAMESPACE}} || true
-      - helm uninstall my-postgres -n {{.APP_NAMESPACE}} || true
-      - kubectl delete namespace {{.APP_NAMESPACE}} || true
 
   clean:
     cmds:
@@ -206,3 +204,7 @@ tasks:
       - echo "Application will be available at http://localhost:8080"
       - echo "Press Ctrl+C to stop port forwarding"
       - kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 8080:80
+
+  deploy-ingress-manually:
+    cmds:
+      - helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --create-namespace --namespace ingress-nginx -f k8s/ingress-nginx/values.yaml

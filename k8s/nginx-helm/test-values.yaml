@@ -1,0 +1,37 @@
+# Minimal test configuration
+cell:
+  id: "test"
+  displayName: "Test Cell"
+
+replicaCount: 1
+
+resources:
+  nginx:
+    limits:
+      cpu: 50m
+      memory: 64Mi
+    requests:
+      cpu: 25m
+      memory: 32Mi
+  exporter:
+    limits:
+      cpu: 25m
+      memory: 32Mi
+    requests:
+      cpu: 10m
+      memory: 16Mi
+
+prometheusExporter:
+  enabled: false
+
+serviceMonitor:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
+
+networkPolicy:
+  enabled: false
+
+autoscaling:
+  enabled: false

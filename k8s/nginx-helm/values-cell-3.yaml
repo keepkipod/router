@@ -1,0 +1,175 @@
+# Configuration for NGINX Cell 3
+cell:
+  id: "3"
+  displayName: "Cell 3"
+
+replicaCount: 1
+
+customHtml:
+  enabled: true
+  themeColor: "#dc3545"  # Red theme for Cell 3
+  content: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>NGINX {{ .Values.cell.displayName }}</title>
+        <style>
+            body {
+                font-family: 'Helvetica Neue', Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+            .container {
+                text-align: center;
+                padding: 60px;
+                background-color: rgba(255, 255, 255, 0.95);
+                border-radius: 20px;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+                animation: fadeIn 1s ease-in;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            h1 { 
+                color: #333; 
+                margin-bottom: 10px;
+            }
+            .cell-id { 
+                font-size: 72px; 
+                font-weight: bold;
+                color: {{ .Values.customHtml.themeColor | default "#dc3545" }};
+                margin: 30px 0;
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            }
+            .description {
+                color: #666;
+                font-size: 18px;
+            }
+            .status {
+                margin-top: 30px;
+                padding: 10px 20px;
+                background-color: #f8f9fa;
+                border-radius: 20px;
+                display: inline-block;
+                color: #28a745;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>NGINX Instance</h1>
+            <div class="cell-id">Cell ID: {{ .Values.cell.id }}</div>
+            <p class="description">This is NGINX deployment for {{ .Values.cell.displayName }}</p>
+            <div class="status">✓ Active</div>
+        </div>
+    </body>
+    </html>
+
+resources:
+  nginx:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  exporter:
+    limits:
+      cpu: 50m
+      memory: 64Mi
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+serviceMonitor:
+  enabled: false
+  labels:
+    prometheus: kube-prometheus
+    cell: "3"
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+
+# Custom NGINX configuration for Cell 3
+nginxConfig:
+  serverBlock: |
+    server {
+        listen 80;
+        server_name _;
+        
+        # Custom access log format for Cell 3
+        access_log /var/log/nginx/access.log combined;
+        
+        # Enable nginx status for prometheus exporter
+        location /nginx_status {
+            stub_status on;
+            access_log off;
+            allow 127.0.0.1;
+            deny all;
+        }
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        # Main application with caching headers
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            
+            # CORS headers
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+            add_header Access-Control-Allow-Headers "Origin, Content-Type, Accept";
+            
+            # Security headers
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+            add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+            
+            # Custom headers to identify the cell
+            add_header X-Cell-ID "{{ .Values.cell.id }}" always;
+            add_header X-Server-Instance "nginx-{{ .Values.cell.id }}" always;
+            add_header X-Response-Time $request_time always;
+            
+            # Cache control for static assets
+            expires 1h;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # Handle POST requests with JSON response
+        location /api {
+            if ($request_method = 'POST') {
+                add_header Content-Type application/json;
+                return 200 '{"cellID": "{{ .Values.cell.id }}", "server": "nginx-{{ .Values.cell.id }}", "message": "Request processed by NGINX instance {{ .Values.cell.id }}", "timestamp": "$msec"}';
+            }
+            return 405;
+        }
+        
+        # Custom endpoint for Cell 3
+        location /status {
+            add_header Content-Type application/json;
+            return 200 '{"cell": "{{ .Values.cell.id }}", "status": "operational", "version": "{{ .Chart.AppVersion }}"}';
+        }
+    }
+
+# Tolerations for Cell 3 to run on specific nodes
+tolerations:
+- key: "cell"
+  operator: "Equal"
+  value: "3"
+  effect: "NoSchedule"

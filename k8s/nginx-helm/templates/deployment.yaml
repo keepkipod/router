@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nginx-cell.fullname" . }}
+  labels:
+    {{- include "nginx-cell.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "nginx-cell.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "nginx-cell.selectorLabels" . | nindent 8 }}
+        cell: {{ .Values.cell.id | quote }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "nginx-cell.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: nginx
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 12 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 12 }}
+        resources:
+          {{- toYaml .Values.resources.nginx | nindent 12 }}
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+        {{- if .Values.customHtml.enabled }}
+        - name: html
+          mountPath: /usr/share/nginx/html
+        {{- end }}
+        # Add writable directories for nginx
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
+        - name: nginx-tmp
+          mountPath: /tmp
+      {{- if .Values.prometheusExporter.enabled }}
+      - name: nginx-exporter
+        image: "{{ .Values.prometheusExporter.image.repository }}:{{ .Values.prometheusExporter.image.tag }}"
+        imagePullPolicy: {{ .Values.prometheusExporter.image.pullPolicy }}
+        ports:
+        - name: metrics
+          containerPort: 9113
+          protocol: TCP
+        args:
+          {{- toYaml .Values.prometheusExporter.args | nindent 12 }}
+        resources:
+          {{- toYaml .Values.resources.exporter | nindent 12 }}
+      {{- end }}
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: {{ include "nginx-cell.fullname" . }}-config
+      {{- if .Values.customHtml.enabled }}
+      - name: html
+        configMap:
+          name: {{ include "nginx-cell.fullname" . }}-html
+      {{- end }}
+      # Add emptyDir volumes for writable directories
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
+      - name: nginx-tmp
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

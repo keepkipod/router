@@ -1,0 +1,10 @@
+apiVersion: v2
+name: nginx-cell
+description: A generic Helm chart for NGINX cell deployments
+type: application
+version: 1.0.0
+appVersion: "1.25"
+keywords:
+  - nginx
+  - web
+  - cell

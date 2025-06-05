@@ -1,0 +1,53 @@
+# Configuration for NGINX Cell 1
+cell:
+  id: "1"
+  displayName: "Cell 1"
+
+replicaCount: 1
+
+customHtml:
+  enabled: true
+  themeColor: "#007bff"  # Blue theme for Cell 1
+
+resources:
+  nginx:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  exporter:
+    limits:
+      cpu: 50m
+      memory: 64Mi
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+serviceMonitor:
+  enabled: false
+  labels:
+    prometheus: kube-prometheus
+    cell: "1"
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+
+# Optional: Node affinity for Cell 1
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - nginx-1
+        topologyKey: kubernetes.io/hostname

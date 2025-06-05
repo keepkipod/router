@@ -46,9 +46,9 @@ upstream_errors = Counter(
 
 # Configuration
 NGINX_SERVICES = {
-    "1": os.getenv("NGINX_1_URL", "http://nginx-1.nginx.svc.cluster.local"),
-    "2": os.getenv("NGINX_2_URL", "http://nginx-2.nginx.svc.cluster.local"),
-    "3": os.getenv("NGINX_3_URL", "http://nginx-3.nginx.svc.cluster.local"),
+    "1": os.getenv("NGINX_1_URL", "http://nginx-1-nginx-cell.nginx.svc.cluster.local"),
+    "2": os.getenv("NGINX_2_URL", "http://nginx-2-nginx-cell.nginx.svc.cluster.local"),
+    "3": os.getenv("NGINX_3_URL", "http://nginx-3-nginx-cell.nginx.svc.cluster.local"),
 }
 
 # Request timeout

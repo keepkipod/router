@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "router.fullname" . }}
+  labels:
+    {{- include "router.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.config.nginxUrls }}
+  NGINX_{{ $key }}_URL: {{ $value | quote }}
+  {{- end }}
+  REQUEST_TIMEOUT: {{ .Values.config.requestTimeout | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}

@@ -8,9 +8,9 @@ nodes:
     nodeRegistration:
       kubeletExtraArgs:
         node-labels: "ingress-ready=true"
-        system-reserved: "cpu=500m,memory=1Gi"
-        kube-reserved: "cpu=500m,memory=1Gi"
-        eviction-hard: "memory.available<200Mi,nodefs.available<10%"
+        system-reserved: "cpu=100m,memory=100Mi"
+        kube-reserved: "cpu=100m,memory=100Mi"
+        eviction-hard: "memory.available<100Mi,nodefs.available<5%"
   extraPortMappings:
   - containerPort: 80
     hostPort: 80
@@ -18,16 +18,13 @@ nodes:
   - containerPort: 443
     hostPort: 443
     protocol: TCP
-  extraMounts:
-  - hostPath: /tmp
-    containerPath: /tmp
 - role: worker
   kubeadmConfigPatches:
   - |
     kind: JoinConfiguration
     nodeRegistration:
       kubeletExtraArgs:
-        system-reserved: "cpu=200m,memory=500Mi"
-        kube-reserved: "cpu=200m,memory=500Mi"
+        system-reserved: "cpu=50m,memory=50Mi"
+        kube-reserved: "cpu=50m,memory=50Mi"
 - role: worker
 - role: worker

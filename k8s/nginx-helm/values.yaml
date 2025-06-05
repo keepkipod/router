@@ -1,0 +1,225 @@
+# Default values for nginx-cell.
+# This is a YAML-formatted file.
+
+# Cell configuration
+cell:
+  id: "1"
+  displayName: "Cell 1"
+
+replicaCount: 2
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  tag: "1.25-alpine"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: false
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9113"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  fsGroup: 101
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 101
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+    - ALL
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+  metricsPort: 9113
+  annotations: {}
+
+resources:
+  nginx:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  exporter:
+    limits:
+      cpu: 50m
+      memory: 64Mi
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Prometheus exporter
+prometheusExporter:
+  enabled: true
+  image:
+    repository: nginx/nginx-prometheus-exporter
+    tag: "0.11.0"
+    pullPolicy: IfNotPresent
+  args:
+    - -nginx.scrape-uri=http://localhost/nginx_status
+
+# NGINX configuration
+nginxConfig:
+  # Main server configuration
+  serverBlock: |
+    server {
+        listen 80;
+        server_name _;
+        
+        # Enable nginx status for prometheus exporter
+        location /nginx_status {
+            stub_status on;
+            access_log off;
+            allow 127.0.0.1;
+            deny all;
+        }
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        # Main application
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            
+            # CORS headers
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, POST, OPTIONS";
+            add_header Access-Control-Allow-Headers "Origin, Content-Type, Accept";
+            
+            # Security headers
+            add_header X-Frame-Options "SAMEORIGIN" always;
+            add_header X-Content-Type-Options "nosniff" always;
+            add_header X-XSS-Protection "1; mode=block" always;
+            
+            # Custom headers to identify the cell
+            add_header X-Cell-ID "{{ .Values.cell.id }}" always;
+            add_header X-Server-Instance "nginx-{{ .Values.cell.id }}" always;
+        }
+        
+        # Handle POST requests with JSON response
+        location /api {
+            if ($request_method = 'POST') {
+                add_header Content-Type application/json;
+                return 200 '{"cellID": "{{ .Values.cell.id }}", "server": "nginx-{{ .Values.cell.id }}", "message": "Request processed by NGINX instance {{ .Values.cell.id }}"}';
+            }
+            return 405;
+        }
+    }
+
+# Custom HTML content
+customHtml:
+  enabled: true
+  content: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>NGINX {{ .Values.cell.displayName }}</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f0f0f0;
+            }
+            .container {
+                text-align: center;
+                padding: 40px;
+                background-color: white;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            h1 { color: #333; }
+            .cell-id { 
+                font-size: 48px; 
+                color: {{ .Values.customHtml.themeColor | default "#007bff" }};
+                margin: 20px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>NGINX Instance</h1>
+            <div class="cell-id">Cell ID: {{ .Values.cell.id }}</div>
+            <p>This is NGINX deployment for {{ .Values.cell.displayName }}</p>
+        </div>
+    </body>
+    </html>
+  themeColor: "#007bff"
+
+# Liveness and Readiness probes
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# ServiceMonitor for Prometheus Operator
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  labels:
+    prometheus: kube-prometheus
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: router
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring

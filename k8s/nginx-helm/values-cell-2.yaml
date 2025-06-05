@@ -1,0 +1,50 @@
+# Configuration for NGINX Cell 2
+cell:
+  id: "2"
+  displayName: "Cell 2"
+
+replicaCount: 1
+
+customHtml:
+  enabled: true
+  themeColor: "#28a745"  # Green theme for Cell 2
+
+resources:
+  nginx:
+    limits:
+      cpu: 150m
+      memory: 192Mi
+    requests:
+      cpu: 75m
+      memory: 96Mi
+  exporter:
+    limits:
+      cpu: 50m
+      memory: 64Mi
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+serviceMonitor:
+  enabled: false
+  labels:
+    prometheus: kube-prometheus
+    cell: "2"
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2  # Higher availability for Cell 2
+
+networkPolicy:
+  enabled: true
+
+autoscaling:
+  enabled: true  # Enable autoscaling for Cell 2
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+
+# Different node selection for Cell 2
+nodeSelector:
+  node-role.kubernetes.io/worker: "true"
