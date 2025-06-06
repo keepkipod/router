@@ -208,3 +208,68 @@ tasks:
   deploy-ingress-manually:
     cmds:
       - helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx --create-namespace --namespace ingress-nginx -f k8s/ingress-nginx/values.yaml
+
+  # Quick check of app status
+  check-apps:
+    desc: "Quick check of all applications"
+    cmds:
+      - kubectl get applications -n argocd
+
+  # Force sync if needed
+  force-sync:
+    desc: "Force sync all applications"
+    cmds:
+      - kubectl patch application app-of-apps -n argocd --type merge -p '{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"true"}}}'
+      - sleep 2
+      - kubectl get applications -n argocd
+
+  # Check for sync issues
+  check-sync-issues:
+    desc: "Check for applications with sync issues"
+    cmds:
+      - |
+        echo "=== Applications with sync issues ==="
+        kubectl get applications -n argocd --no-headers | grep -v "Synced" || echo "All applications synced!"
+
+  # Simple restart of ArgoCD if having issues
+  restart-argocd:
+    desc: "Restart ArgoCD components"
+    cmds:
+      - kubectl rollout restart deployment -n argocd
+      - kubectl rollout status deployment -n argocd
+
+  # Check logs for errors
+  check-argocd-logs:
+    desc: "Check ArgoCD logs for errors"
+    cmds:
+      - |
+        echo "=== Recent ArgoCD Controller Errors ==="
+        kubectl logs -n argocd deployment/argocd-application-controller --tail=50 | grep -i error || echo "No errors found"
+
+  # Simple deployment with build
+  deploy-with-build:
+    desc: "Deploy everything including building router image"
+    cmds:
+      - task: deploy-cluster
+      - task: wait-for-cluster
+      - task: install-argocd-cli
+      - task: deploy-argocd
+      - task: build-app
+      - task: bootstrap-apps
+      - echo "Deployment complete! Use 'task port-forward-argocd' to access ArgoCD UI"
+
+  # Troubleshooting helper
+  troubleshoot:
+    desc: "Run basic troubleshooting checks"
+    cmds:
+      - echo "=== Cluster Nodes ==="
+      - kubectl get nodes
+      - echo ""
+      - echo "=== ArgoCD Applications ==="
+      - kubectl get applications -n argocd
+      - echo ""
+      - echo "=== Pods by Namespace ==="
+      - kubectl get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded
+      - echo ""
+      - echo "=== Recent Events ==="
+      - kubectl get events -A --sort-by='.lastTimestamp' | tail -20

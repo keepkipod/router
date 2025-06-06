@@ -1,22 +1,25 @@
 configs:
   params:
     server.insecure: true
-    # Reduce memory usage by limiting concurrent operations
     controller.operation.processors: "5"
     controller.status.processors: "10"
     controller.self.heal.timeout.seconds: "10"
   cm:
-    resource.customizations: |
-      networking.k8s.io/Ingress:
-        health.lua: |
-          hs = {}
-          hs.status = "Healthy"
-          return hs
-    # Reduce resource tracking load
+    # Fix for Ingress health status
+    resource.customizations.health.networking.k8s.io_Ingress: |
+      hs = {}
+      hs.status = "Healthy"
+      return hs
+    # Fix for ServiceMonitor health
+    resource.customizations.health.monitoring.coreos.com_ServiceMonitor: |
+      hs = {}
+      hs.status = "Healthy"
+      return hs
+    # Increase timeout for large apps
     timeout.reconciliation: "180s"
     timeout.hard.reconciliation: "0s"
 
-# Controller configuration with proper resources
+# Controller configuration
 controller:
   resources:
     requests:
@@ -25,7 +28,6 @@ controller:
     limits:
       cpu: 1000m
       memory: 1Gi
-  # Reduce parallel processing to save memory
   parallelismLimit: 10
 
 # Redis configuration
@@ -63,10 +65,9 @@ repoServer:
     limits:
       cpu: 500m
       memory: 512Mi
-  # Increase parallelism for repo operations
   parallelismLimit: 5
 
-# Disable components we don't need to save resources
+# Disable components we don't need
 dex:
   enabled: false
 

@@ -15,6 +15,14 @@ spec:
     targetRevision: 56.0.0
     helm:
       values: |
+        # Minimal configuration for Kind
+        defaultRules:
+          create: true
+          rules:
+            alertmanager: true
+            etcd: false
+            kubeScheduler: false
+        
         prometheus:
           prometheusSpec:
             retention: 24h
@@ -22,12 +30,39 @@ spec:
               requests:
                 cpu: 200m
                 memory: 200Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            serviceMonitorSelectorNilUsesHelmValues: false
+            serviceMonitorSelector: {}
+            serviceMonitorNamespaceSelector: {}
+        
         grafana:
           enabled: true
           adminPassword: admin
           service:
             type: NodePort
             nodePort: 30300
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+        
+        # Disable components not needed
+        kubeEtcd:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests:
+                cpu: 50m
+                memory: 50Mi
+  
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
@@ -35,6 +70,13 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - SkipDryRunOnMissingResource=true
