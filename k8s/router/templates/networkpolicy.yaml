@@ -10,13 +10,62 @@ spec:
     matchLabels:
       {{- include "router.selectorLabels" . | nindent 6 }}
   policyTypes:
-    {{- toYaml .Values.networkPolicy.policyTypes | nindent 4 }}
-  {{- if .Values.networkPolicy.ingress }}
+    - Ingress
+    - Egress
   ingress:
-    {{- toYaml .Values.networkPolicy.ingress | nindent 4 }}
-  {{- end }}
-  {{- if .Values.networkPolicy.egress }}
+    # Allow from ingress controller
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      ports:
+      - protocol: TCP
+        port: 8000
+    # Allow from monitoring
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: monitoring
+      ports:
+      - protocol: TCP
+        port: 8000
+    # Allow internal health checks
+    - from:
+      - podSelector: {}
+      ports:
+      - protocol: TCP
+        port: 8000
   egress:
-    {{- toYaml .Values.networkPolicy.egress | nindent 4 }}
-  {{- end }}
+    # CRITICAL: Allow DNS resolution
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+      ports:
+      - protocol: UDP
+        port: 53
+      - protocol: TCP
+        port: 53
+    # Allow to NGINX services
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: nginx
+      ports:
+      - protocol: TCP
+        port: 80
+    # Allow to any pod in nginx namespace (alternative)
+    - to:
+      - namespaceSelector: {}
+        podSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values: ["nginx-1", "nginx-2", "nginx-3"]
+      ports:
+      - protocol: TCP
+        port: 80
 {{- end }}
