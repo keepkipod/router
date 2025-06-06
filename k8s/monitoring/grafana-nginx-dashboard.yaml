@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-nginx-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  nginx-golden-signals.json: |
+    {
+      "dashboard": {
+        "title": "NGINX Cells - Golden Signals",
+        "uid": "nginx-golden-signals",
+        "tags": ["nginx", "golden-signals"],
+        "timezone": "browser",
+        "schemaVersion": 30,
+        "panels": [
+          {
+            "title": "🚦 Traffic - Request Rate per Cell",
+            "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(nginx_http_requests_total[5m])) by (instance)",
+                "legendFormat": "{{instance}}"
+              }
+            ]
+          },
+          {
+            "title": "❌ Errors - 4xx and 5xx Rate",
+            "gridPos": {"h": 8, "w": 8, "x": 8, "y": 0},
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(nginx_http_requests_total{status=~\"4..\"}[5m])) by (instance)",
+                "legendFormat": "4xx {{instance}}"
+              },
+              {
+                "expr": "sum(rate(nginx_http_requests_total{status=~\"5..\"}[5m])) by (instance)",
+                "legendFormat": "5xx {{instance}}"
+              }
+            ]
+          },
+          {
+            "title": "⏱️ Latency - Response Time",
+            "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(nginx_http_request_duration_seconds_bucket[5m])) by (instance, le))",
+                "legendFormat": "P95 {{instance}}"
+              }
+            ]
+          },
+          {
+            "title": "📊 Saturation - Active Connections",
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "nginx_connections_active",
+                "legendFormat": "Active {{instance}}"
+              },
+              {
+                "expr": "nginx_connections_reading",
+                "legendFormat": "Reading {{instance}}"
+              },
+              {
+                "expr": "nginx_connections_writing",
+                "legendFormat": "Writing {{instance}}"
+              },
+              {
+                "expr": "nginx_connections_waiting",
+                "legendFormat": "Waiting {{instance}}"
+              }
+            ]
+          },
+          {
+            "title": "📊 Resource Usage",
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"nginx\"}[5m])) by (pod) * 100",
+                "legendFormat": "CPU {{pod}}"
+              },
+              {
+                "expr": "sum(container_memory_usage_bytes{namespace=\"nginx\"}) by (pod) / 1024 / 1024 / 1024",
+                "legendFormat": "Memory {{pod}}"
+              }
+            ]
+          }
+        ]
+      }
+    }

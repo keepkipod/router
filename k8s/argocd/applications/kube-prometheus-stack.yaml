@@ -9,59 +9,99 @@ metadata:
     argocd.argoproj.io/sync-wave: "3"
 spec:
   project: default
-  source:
-    repoURL: https://prometheus-community.github.io/helm-charts
-    chart: kube-prometheus-stack
-    targetRevision: 56.0.0
-    helm:
-      values: |
-        # Minimal configuration for Kind
-        defaultRules:
-          create: true
-          rules:
-            alertmanager: true
-            etcd: false
-            kubeScheduler: false
-        
-        prometheus:
-          prometheusSpec:
-            retention: 24h
+  sources:
+    # First source: Helm chart
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 73.2.0
+      helm:
+        values: |
+          # Minimal configuration for Kind
+          defaultRules:
+            create: true
+            rules:
+              alertmanager: false
+              etcd: false
+              kubeScheduler: false
+          
+          prometheus:
+            prometheusSpec:
+              retention: 24h
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 200Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              serviceMonitorSelectorNilUsesHelmValues: false
+              serviceMonitorSelector: {}
+              serviceMonitorNamespaceSelector: {}
+          
+          grafana:
+            enabled: true
+            adminPassword: admin
+            service:
+              type: NodePort
+              nodePort: 30300
             resources:
               requests:
-                cpu: 200m
-                memory: 200Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
-            serviceMonitorSelectorNilUsesHelmValues: false
-            serviceMonitorSelector: {}
-            serviceMonitorNamespaceSelector: {}
-        
-        grafana:
-          enabled: true
-          adminPassword: admin
-          service:
-            type: NodePort
-            nodePort: 30300
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-        
-        # Disable components not needed
-        kubeEtcd:
-          enabled: false
-        kubeControllerManager:
-          enabled: false
-        kubeScheduler:
-          enabled: false
-        
-        alertmanager:
-          alertmanagerSpec:
-            resources:
-              requests:
-                cpu: 50m
-                memory: 50Mi
+                cpu: 100m
+                memory: 128Mi
+            # Enable sidecar for dashboards
+            sidecar:
+              dashboards:
+                enabled: true
+                label: grafana_dashboard
+                labelValue: "1"
+                searchNamespace: ALL
+                provider:
+                  disableDelete: false
+                  allowUiUpdates: true
+            # Import community dashboards
+            dashboardProviders:
+              dashboardproviders.yaml:
+                apiVersion: 1
+                providers:
+                - name: 'default'
+                  orgId: 1
+                  folder: ''
+                  type: file
+                  disableDeletion: false
+                  updateIntervalSeconds: 10
+                  allowUiUpdates: true
+                  options:
+                    path: /var/lib/grafana/dashboards/default
+            dashboards:
+              default:
+                nginx-exporter:
+                  gnetId: 12708
+                  revision: 1
+                  datasource: Prometheus
+                kubernetes-cluster:
+                  gnetId: 7249
+                  revision: 1
+                  datasource: Prometheus
+          
+          # Disable components not needed
+          kubeEtcd:
+            enabled: false
+          kubeControllerManager:
+            enabled: false
+          kubeScheduler:
+            enabled: false
+          
+          alertmanager:
+            alertmanagerSpec:
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 50Mi
+    
+    # Second source: Custom dashboards from the repo
+    - repoURL: https://github.com/keepkipod/router.git
+      targetRevision: HEAD
+      path: k8s/monitoring
   
   destination:
     server: https://kubernetes.default.svc
