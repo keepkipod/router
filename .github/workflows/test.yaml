@@ -16,8 +16,8 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
+        pip install -r router/requirements.txt
+        pip install -r router/requirements-dev.txt
     
     - name: Run tests
       run: |
