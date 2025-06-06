@@ -21,4 +21,5 @@ jobs:
     
     - name: Run tests
       run: |
-        pytest --cov=router/src tests/
+        cd router
+        PYTHONPATH=src pytest --cov=src tests/
