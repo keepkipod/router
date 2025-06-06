@@ -1,0 +1,4 @@
+curl -X POST http://localhost:8080/api/route \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: demo-key-1" \
+  -d '{"cellID": "1"}'

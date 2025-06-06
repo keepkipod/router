@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 import httpx
@@ -14,6 +15,17 @@ import uvicorn
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client.core import CollectorRegistry
 from starlette.responses import Response
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# Create limiter instance
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["100 per minute", "1000 per hour"]
+)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure structured logging
 logging.basicConfig(
@@ -90,7 +102,14 @@ app = FastAPI(
     title="Cell Router API",
     description="Routes requests to appropriate NGINX instances based on cell ID",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    max_request_size=1024 * 1024  # 1MB limit
+)
+
+# Add Trusted Host middleware (should be added first)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["localhost", "127.0.0.1", "*.cluster.local", "router.router.svc.cluster.local"]
 )
 
 # Add CORS middleware
@@ -102,14 +121,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Middleware for request tracking
+# Middleware for request tracking and security headers
 @app.middleware("http")
-async def track_requests(request: Request, call_next):
+async def track_requests_and_add_security_headers(request: Request, call_next):
     start_time = time.time()
     
     # Skip metrics endpoint
     if request.url.path == "/metrics":
-        return await call_next(request)
+        response = await call_next(request)
+        return response
     
     response = await call_next(request)
     
@@ -123,6 +143,18 @@ async def track_requests(request: Request, call_next):
             status=response.status_code,
             method=request.method
         ).inc()
+    
+    # Add security headers to all responses (except metrics)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    
+    # Remove server header if present
+    if "server" in response.headers:
+        del response.headers["server"]
     
     return response
 
@@ -168,7 +200,13 @@ async def metrics():
 
 # Main routing endpoint
 @app.post("/api/route")
-async def route_request(cell_request: CellRequest, request: Request):
+@limiter.limit("30 per minute")  # Cell-specific rate limit
+async def route_request(
+    cell_request: CellRequest, 
+    request: Request,
+    client_id: str = Depends(verify_api_key)
+):
+    logger.info(f"Request from client: {client_id} for cell_id={cell_request.cellID}")
     """Route request to appropriate NGINX instance based on cell ID"""
     cell_id = cell_request.cellID
     nginx_url = NGINX_SERVICES[cell_id]

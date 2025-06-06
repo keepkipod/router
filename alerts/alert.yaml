@@ -1,0 +1,21 @@
+# Monitoring Suspicious Activity
+# Add to Prometheus alerts
+- alert: HighRateOfFailedRequests
+  expr: |
+    sum(rate(router_requests_total{status=~"4.."}[5m])) by (cell_id)
+    > 10
+  for: 2m
+  labels:
+    severity: warning
+  annotations:
+    summary: "High rate of failed requests detected"
+    description: "Possible brute force or scanning attempt"
+
+- alert: UnusualTrafficPattern
+  expr: |
+    stddev(rate(router_requests_total[5m])) by (cell_id) > 2
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Unusual traffic pattern detected"
