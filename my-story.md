@@ -9,3 +9,5 @@ If I had more time I would not choose kind but k3s instead as it is more light b
 
 With more time I would go with distroless image
 
+Tried instate rate limit but got into troubles with it so skipped for now
+
