@@ -131,6 +131,21 @@ networkPolicy:
           matchLabels:
             k8s-app: kube-dns
 
+# API Authentication
+auth:
+  enabled: true 
+  # If existingSecret is set, it will use an existing secret
+  # Otherwise, it will create a secret with the provided keys
+  existingSecret: ""
+  # API keys to create (only used if existingSecret is not set)
+  apiKeys:
+    - key: "demo-key-1"
+      client: "client1"
+    - key: "demo-key-2"
+      client: "client2"
+    - key: "test-key"
+      client: "test-client"
+
 # Application configuration
 config:
   nginxUrls:
