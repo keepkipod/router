@@ -27,4 +27,18 @@ nodes:
         system-reserved: "cpu=50m,memory=50Mi"
         kube-reserved: "cpu=50m,memory=50Mi"
 - role: worker
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        system-reserved: "cpu=50m,memory=50Mi"
+        kube-reserved: "cpu=50m,memory=50Mi"
 - role: worker
+  kubeadmConfigPatches:
+  - |
+    kind: JoinConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        system-reserved: "cpu=50m,memory=50Mi"
+        kube-reserved: "cpu=50m,memory=50Mi"

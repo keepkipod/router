@@ -33,18 +33,14 @@ serviceMonitor:
 
 podDisruptionBudget:
   enabled: true
-  minAvailable: 2  # Higher availability for Cell 2
+  minAvailable: 1
 
 networkPolicy:
   enabled: true
 
 autoscaling:
-  enabled: true  # Enable autoscaling for Cell 2
+  enabled: false
   minReplicas: 3
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 75
-
-# Different node selection for Cell 2
-nodeSelector:
-  node-role.kubernetes.io/worker: "true"

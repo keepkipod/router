@@ -46,9 +46,9 @@ upstream_errors = Counter(
 
 # Configuration
 NGINX_SERVICES = {
-    "1": os.getenv("NGINX_1_URL", "http://nginx-1-nginx-cell.nginx.svc.cluster.local"),
-    "2": os.getenv("NGINX_2_URL", "http://nginx-2-nginx-cell.nginx.svc.cluster.local"),
-    "3": os.getenv("NGINX_3_URL", "http://nginx-3-nginx-cell.nginx.svc.cluster.local"),
+    "1": os.getenv("NGINX_1_URL", "http://nginx-1.nginx.svc.cluster.local"),
+    "2": os.getenv("NGINX_2_URL", "http://nginx-2.nginx.svc.cluster.local"),
+    "3": os.getenv("NGINX_3_URL", "http://nginx-3.nginx.svc.cluster.local"),
 }
 
 # Request timeout
@@ -176,12 +176,15 @@ async def route_request(cell_request: CellRequest, request: Request):
     # Store cell_id in request state for metrics
     request.state.cell_id = cell_id
     
-    logger.info(f"Routing request for cell_id={cell_id} to {nginx_url}")
+    # Route to the /api endpoint on NGINX
+    target_url = f"{nginx_url}/api"
+    
+    logger.info(f"Routing request for cell_id={cell_id} to {target_url}")
     
     try:
         # Forward the request to the appropriate NGINX instance
         response = await app.state.http_client.post(
-            nginx_url,
+            target_url,
             json={"cellID": cell_id, "timestamp": time.time()},
             headers={
                 "X-Cell-ID": cell_id,
