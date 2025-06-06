@@ -60,3 +60,7 @@ spec:
           - CreateNamespace=true
           - ApplyOutOfSyncOnly=true
       revisionHistoryLimit: 10
+      ignoreDifferences: []
+      info:
+        - name: "dependency"
+          value: "ingress-nginx"

@@ -17,3 +17,9 @@ Tried instate rate limit but got into troubles with it so skipped for now
 Had many issues with argocd, turns out it's because I am using colima instead of docker desktop and limited resources
 after some digging found out how to allocate more
 
+When I was working on the python app with deploying all workloads via helm install manuually - the networkPolicy worked just fine
+but when I moved on to work via GitOps, something went wrong. I wish to get back to it, but for now, to save time I will make it as:
+networkPolicy:
+  enabled: false
+so I can get on with all other stuff
+

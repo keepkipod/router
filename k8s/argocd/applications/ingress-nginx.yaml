@@ -36,3 +36,9 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+  ignoreDifferences:
+    - group: ""
+      kind: Service
+      name: ingress-nginx-controller
+      jsonPointers:
+        - /spec/ports
