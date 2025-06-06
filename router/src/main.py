@@ -15,17 +15,6 @@ import uvicorn
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from prometheus_client.core import CollectorRegistry
 from starlette.responses import Response
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-
-# Create limiter instance
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["100 per minute", "1000 per hour"]
-)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure structured logging
 logging.basicConfig(
@@ -102,8 +91,7 @@ app = FastAPI(
     title="Cell Router API",
     description="Routes requests to appropriate NGINX instances based on cell ID",
     version="1.0.0",
-    lifespan=lifespan,
-    max_request_size=1024 * 1024  # 1MB limit
+    lifespan=lifespan
 )
 
 # Add Trusted Host middleware (should be added first)
@@ -200,13 +188,7 @@ async def metrics():
 
 # Main routing endpoint
 @app.post("/api/route")
-@limiter.limit("30 per minute")  # Cell-specific rate limit
-async def route_request(
-    cell_request: CellRequest, 
-    request: Request,
-    client_id: str = Depends(verify_api_key)
-):
-    logger.info(f"Request from client: {client_id} for cell_id={cell_request.cellID}")
+async def route_request(cell_request: CellRequest, request: Request):
     """Route request to appropriate NGINX instance based on cell ID"""
     cell_id = cell_request.cellID
     nginx_url = NGINX_SERVICES[cell_id]
