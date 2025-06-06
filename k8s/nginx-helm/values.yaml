@@ -6,7 +6,7 @@ cell:
   id: "1"
   displayName: "Cell 1"
 
-replicaCount: 2
+replicaCount: 1
 
 image:
   repository: nginx
@@ -87,15 +87,12 @@ prometheusExporter:
 
 # NGINX configuration
 nginxConfig:
-  # Main server configuration
+  # Main server configuration (without rate limiting zones)
   serverBlock: |
     server {
         listen 80;
         server_name _;
         
-        # General rate limiting
-        limit_req zone=general_limit burst=20 nodelay;
-
         # Enable nginx status for prometheus exporter
         location /nginx_status {
             stub_status on;
@@ -133,10 +130,6 @@ nginxConfig:
         
         # Handle POST requests with JSON response
         location /api {
-            # Stricter rate limiting for API endpoint
-            limit_req zone=api_limit burst=5 nodelay;
-            limit_req_status 429;
-            
             if ($request_method = 'POST') {
                 add_header Content-Type application/json;
                 return 200 '{"cellID": "{{ .Values.cell.id }}", "server": "nginx-{{ .Values.cell.id }}", "message": "Request processed by NGINX instance {{ .Values.cell.id }}"}';

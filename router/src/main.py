@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 import httpx
@@ -94,12 +93,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add Trusted Host middleware (should be added first)
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "*.cluster.local", "router.router.svc.cluster.local"]
-)
-
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -109,7 +102,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Middleware for request tracking and security headers
+# Combined middleware for request tracking and security headers
 @app.middleware("http")
 async def track_requests_and_add_security_headers(request: Request, call_next):
     start_time = time.time()
@@ -154,9 +147,10 @@ async def health_check():
     
     for cell_id, url in NGINX_SERVICES.items():
         try:
-            response = await app.state.http_client.get(f"{url}/", timeout=5)
+            response = await app.state.http_client.get(f"{url}/health", timeout=5)
             upstream_status[f"nginx-{cell_id}"] = "healthy" if response.status_code == 200 else "unhealthy"
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Health check failed for nginx-{cell_id}: {str(e)}")
             upstream_status[f"nginx-{cell_id}"] = "unreachable"
     
     return HealthResponse(
@@ -172,7 +166,7 @@ async def readiness_check():
     # Check if at least one upstream is available
     for cell_id, url in NGINX_SERVICES.items():
         try:
-            response = await app.state.http_client.get(f"{url}/", timeout=5)
+            response = await app.state.http_client.get(f"{url}/health", timeout=5)
             if response.status_code == 200:
                 return {"status": "ready"}
         except Exception:

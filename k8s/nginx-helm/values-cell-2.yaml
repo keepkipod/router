@@ -39,8 +39,8 @@ networkPolicy:
   enabled: true
 
 autoscaling:
-  enabled: true  # Enable autoscaling for Cell 2
-  minReplicas: 3
+  enabled: false
+  minReplicas: 1
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 75

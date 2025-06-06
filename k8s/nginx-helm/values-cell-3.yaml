@@ -100,15 +100,12 @@ podDisruptionBudget:
 networkPolicy:
   enabled: true
 
-# Custom NGINX configuration for Cell 3
+# Custom NGINX configuration for Cell 3 (without rate limiting)
 nginxConfig:
   serverBlock: |
     server {
         listen 80;
         server_name _;
-        
-        # Custom access log format for Cell 3
-        access_log /var/log/nginx/access.log combined;
         
         # Enable nginx status for prometheus exporter
         location /nginx_status {

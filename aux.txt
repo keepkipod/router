@@ -1,3 +1,5 @@
+curl -I http://localhost:8080/api/route
+
 curl -X POST http://localhost:8080/api/route \
   -H "Content-Type: application/json" \
   -H "X-API-Key: demo-key-1" \
