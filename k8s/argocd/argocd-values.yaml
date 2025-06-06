@@ -1,63 +1,22 @@
 configs:
   params:
     server.insecure: true
-    controller.operation.processors: "5"
-    controller.status.processors: "10"
+    controller.operation.processors: "2"
+    controller.status.processors: "5"
     controller.self.heal.timeout.seconds: "10"
+    application.instanceLabelKey: ""
+    controller.repo.server.timeout.seconds: "120"
   cm:
-    # Fix for Ingress health status
     resource.customizations.health.networking.k8s.io_Ingress: |
       hs = {}
       hs.status = "Healthy"
       return hs
-    # Fix for ServiceMonitor health
-    resource.customizations.health.monitoring.coreos.com_ServiceMonitor: |
-      hs = {}
-      hs.status = "Healthy"
-      return hs
-    # Increase timeout for large apps
-    timeout.reconciliation: "180s"
-    timeout.hard.reconciliation: "0s"
+    timeout.reconciliation: "300s"
+    resource.compareoptions: |
+      ignoreResourceStatusField: all
 
-# Controller configuration
 controller:
-  resources:
-    requests:
-      cpu: 250m
-      memory: 512Mi
-    limits:
-      cpu: 1000m
-      memory: 1Gi
-  parallelismLimit: 10
-
-# Redis configuration
-redis:
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-
-# Server configuration
-server:
-  extraArgs:
-    - --insecure
-  service:
-    type: NodePort
-    nodePortHttp: 30080
-    nodePortHttps: 30443
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 300m
-      memory: 512Mi
-
-# Repo server configuration
-repoServer:
+  replicas: 1
   resources:
     requests:
       cpu: 100m
@@ -66,13 +25,58 @@ repoServer:
       cpu: 500m
       memory: 512Mi
   parallelismLimit: 5
+  metrics:
+    enabled: false
 
-# Disable components we don't need
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+server:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  extraArgs:
+    - --insecure
+  service:
+    type: NodePort
+    nodePortHttp: 30080
+  grpc:
+    ingress:
+      enabled: false
+
+repoServer:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  parallelismLimit: 2
+
 dex:
   enabled: false
 
 applicationSet:
-  enabled: false
+  enabled: true
 
 notifications:
+  enabled: false
+
+redis-ha:
+  enabled: false
+
+metrics:
   enabled: false

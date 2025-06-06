@@ -130,7 +130,7 @@ tasks:
   # New deployment flow with ArgoCD
   deploy-all-argocd:
     cmds:
-      - task: deploy-cluster
+      # - task: deploy-cluster
       - task: wait-for-cluster
       - task: install-argocd-cli
       - task: deploy-argocd
@@ -273,3 +273,35 @@ tasks:
       - echo ""
       - echo "=== Recent Events ==="
       - kubectl get events -A --sort-by='.lastTimestamp' | tail -20
+
+  setup-colima-k3s:
+    desc: "Setup Colima with k3s (no Kind)"
+    cmds:
+      - |
+        echo "Setting up Colima with k3s..."
+        colima stop || true
+        colima start --cpu 6 --memory 12 --kubernetes --arch aarch64
+        kubectl config use-context colima
+        kubectl get nodes
+
+  deploy-to-k3s:
+    desc: "Deploy directly to Colima k3s"
+    cmds:
+      - kubectl config use-context colima
+      - task: install-argocd-cli
+      - |
+        echo "Installing ArgoCD on k3s..."
+        kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+        helm repo add argo https://argoproj.github.io/argo-helm
+        helm repo update
+        helm upgrade --install argocd argo/argo-cd \
+          --namespace argocd \
+          --values ./k8s/argocd/argocd-values-minimal.yaml \
+          --wait
+      - task: build-app-k3s
+      - task: bootstrap-apps
+
+  build-app-k3s:
+    desc: "Build app for k3s"
+    cmds:
+      - docker build -t {{.APP_NAME}}:latest ./router

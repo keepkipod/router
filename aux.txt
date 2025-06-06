@@ -4,3 +4,83 @@ curl -X POST http://localhost:8080/api/route \
   -H "Content-Type: application/json" \
   -H "X-API-Key: demo-key-1" \
   -d '{"cellID": "1"}'
+
+
+  # Colima
+  # Colima Configuration for Mac M2
+
+## 1. Check Current Colima Status
+
+```bash
+# Check if Colima is running
+colima status
+
+# Check current resource allocation
+colima list
+```
+
+## 2. Stop and Reconfigure Colima
+
+```bash
+# Stop current instance
+colima stop
+
+# Delete if you want to start fresh (optional)
+# colima delete
+
+# Start Colima with more resources
+# For M2 Mac with 16GB RAM (adjust based on your system):
+colima start \
+  --cpu 6 \
+  --memory 12 \
+  --disk 100 \
+  --kubernetes \
+  --arch aarch64 \
+  --vm-type vz \
+  --vz-rosetta
+
+# Or if you prefer Docker runtime:
+colima start \
+  --cpu 6 \
+  --memory 12 \
+  --disk 100 \
+  --arch aarch64 \
+  --vm-type vz \
+  --vz-rosetta \
+  --runtime docker
+```
+
+## 3. For Existing Colima Instance
+
+If you already have Colima running and don't want to recreate:
+
+```bash
+# Edit Colima configuration
+colima stop
+# Edit ~/.colima/default/colima.yaml
+# Update cpu, memory, and disk values
+colima start
+```
+
+## 4. Verify Resources
+
+```bash
+# Check Docker/Colima info
+docker info | grep -E "CPUs|Memory"
+
+# Check available resources inside Colima
+colima ssh -- free -h
+colima ssh -- nproc
+```
+
+## 5. Environment Variables for M2 Optimization
+
+Add to your shell profile (~/.zshrc or ~/.bash_profile):
+
+```bash
+# Optimize for ARM64
+export DOCKER_DEFAULT_PLATFORM=linux/arm64
+
+# Use Rosetta for x86 emulation when needed
+export DOCKER_BUILDKIT=1
+```

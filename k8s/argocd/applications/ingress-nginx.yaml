@@ -18,9 +18,6 @@ spec:
         controller:
           service:
             type: NodePort
-            nodePorts:
-              http: 30080
-              https: 30443
           nodeSelector:
             ingress-ready: "true"
           tolerations:
