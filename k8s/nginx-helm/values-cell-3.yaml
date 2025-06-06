@@ -35,7 +35,7 @@ podDisruptionBudget:
   enabled: false
 
 networkPolicy:
-  enabled: true
+  enabled: false
 
 autoscaling:
   enabled: false
