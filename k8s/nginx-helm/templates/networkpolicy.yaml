@@ -12,15 +12,32 @@ spec:
   policyTypes:
   - Ingress
   ingress:
-  {{- range .Values.networkPolicy.ingress }}
+  # Allow from router namespace
   - from:
-    {{- toYaml .from | nindent 6 }}
+    - namespaceSelector:
+        matchLabels:
+          name: router
     ports:
     - protocol: TCP
       port: 80
-    {{- if $.Values.prometheusExporter.enabled }}
+    {{- if .Values.prometheusExporter.enabled }}
     - protocol: TCP
       port: 9113
     {{- end }}
-  {{- end }}
+  # Allow from monitoring namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    {{- if .Values.prometheusExporter.enabled }}
+    - protocol: TCP
+      port: 9113
+    {{- end }}
+  # Allow from same namespace (for testing)
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 80
 {{- end }}
