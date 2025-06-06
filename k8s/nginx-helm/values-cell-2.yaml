@@ -12,11 +12,11 @@ customHtml:
 resources:
   nginx:
     limits:
-      cpu: 150m
-      memory: 192Mi
+      cpu: 100m
+      memory: 128Mi
     requests:
-      cpu: 75m
-      memory: 96Mi
+      cpu: 50m
+      memory: 64Mi
   exporter:
     limits:
       cpu: 50m
@@ -32,43 +32,12 @@ serviceMonitor:
     cell: "2"
 
 podDisruptionBudget:
-  enabled: true
-  minAvailable: 1
+  enabled: false
 
 networkPolicy:
   enabled: true
 
 autoscaling:
   enabled: false
-  minReplicas: 1
-  maxReplicas: 6
-  targetCPUUtilizationPercentage: 70
-  targetMemoryUtilizationPercentage: 75
 
-# Anti-affinity to spread nginx-2 pods and avoid co-location with other nginx instances
-affinity:
-  podAntiAffinity:
-    # Spread nginx-2 pods across different nodes
-    preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 100
-      podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: app
-            operator: In
-            values:
-            - nginx-2
-        topologyKey: kubernetes.io/hostname
-    # Required: Don't schedule on nodes that already have other nginx cells
-    requiredDuringSchedulingIgnoredDuringExecution:
-    - labelSelector:
-        matchExpressions:
-        - key: app.kubernetes.io/name
-          operator: In
-          values:
-          - nginx-cell
-        - key: cell
-          operator: NotIn
-          values:
-          - "2"
-      topologyKey: kubernetes.io/hostname
+affinity: {}

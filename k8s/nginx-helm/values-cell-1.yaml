@@ -32,36 +32,12 @@ serviceMonitor:
     cell: "1"
 
 podDisruptionBudget:
-  enabled: true
-  minAvailable: 1
+  enabled: false
 
 networkPolicy:
   enabled: true
 
-# Anti-affinity to spread nginx-1 pods and avoid co-location with other nginx instances
-affinity:
-  podAntiAffinity:
-    # Spread nginx-1 pods across different nodes
-    preferredDuringSchedulingIgnoredDuringExecution:
-    - weight: 100
-      podAffinityTerm:
-        labelSelector:
-          matchExpressions:
-          - key: app
-            operator: In
-            values:
-            - nginx-1
-        topologyKey: kubernetes.io/hostname
-    # Required: Don't schedule on nodes that already have other nginx cells
-    requiredDuringSchedulingIgnoredDuringExecution:
-    - labelSelector:
-        matchExpressions:
-        - key: app.kubernetes.io/name
-          operator: In
-          values:
-          - nginx-cell
-        - key: cell
-          operator: NotIn
-          values:
-          - "1"
-      topologyKey: kubernetes.io/hostname
+autoscaling:
+  enabled: false
+
+affinity: {}
