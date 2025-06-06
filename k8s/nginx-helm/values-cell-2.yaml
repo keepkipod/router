@@ -39,8 +39,36 @@ networkPolicy:
   enabled: true
 
 autoscaling:
-  enabled: false
+  enabled: true  # Enable autoscaling for Cell 2
   minReplicas: 3
   maxReplicas: 6
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 75
+
+# Anti-affinity to spread nginx-2 pods and avoid co-location with other nginx instances
+affinity:
+  podAntiAffinity:
+    # Spread nginx-2 pods across different nodes
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - nginx-2
+        topologyKey: kubernetes.io/hostname
+    # Required: Don't schedule on nodes that already have other nginx cells
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - nginx-cell
+        - key: cell
+          operator: NotIn
+          values:
+          - "2"
+      topologyKey: kubernetes.io/hostname

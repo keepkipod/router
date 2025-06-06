@@ -38,9 +38,10 @@ podDisruptionBudget:
 networkPolicy:
   enabled: true
 
-# Optional: Node affinity for Cell 1
+# Anti-affinity to spread nginx-1 pods and avoid co-location with other nginx instances
 affinity:
   podAntiAffinity:
+    # Spread nginx-1 pods across different nodes
     preferredDuringSchedulingIgnoredDuringExecution:
     - weight: 100
       podAffinityTerm:
@@ -51,3 +52,16 @@ affinity:
             values:
             - nginx-1
         topologyKey: kubernetes.io/hostname
+    # Required: Don't schedule on nodes that already have other nginx cells
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - nginx-cell
+        - key: cell
+          operator: NotIn
+          values:
+          - "1"
+      topologyKey: kubernetes.io/hostname

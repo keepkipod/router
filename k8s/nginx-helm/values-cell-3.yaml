@@ -167,9 +167,30 @@ nginxConfig:
         }
     }
 
-# Tolerations for Cell 3 to run on specific nodes
-tolerations:
-- key: "cell"
-  operator: "Equal"
-  value: "3"
-  effect: "NoSchedule"
+# Anti-affinity to spread nginx-3 pods and avoid co-location with other nginx instances
+affinity:
+  podAntiAffinity:
+    # Spread nginx-3 pods across different nodes
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - nginx-3
+        topologyKey: kubernetes.io/hostname
+    # Required: Don't schedule on nodes that already have other nginx cells
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: In
+          values:
+          - nginx-cell
+        - key: cell
+          operator: NotIn
+          values:
+          - "3"
+      topologyKey: kubernetes.io/hostname
