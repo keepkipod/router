@@ -26,7 +26,7 @@ resources:
       memory: 32Mi
 
 serviceMonitor:
-  enabled: false
+  enabled: true
   labels:
     prometheus: kube-prometheus
     cell: "2"

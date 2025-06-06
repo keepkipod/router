@@ -200,19 +200,16 @@ readinessProbe:
   timeoutSeconds: 3
   failureThreshold: 3
 
-# ServiceMonitor for Prometheus Operator
 serviceMonitor:
-  enabled: false
+  enabled: true
   interval: 30s
   labels:
     prometheus: kube-prometheus
 
-# Pod Disruption Budget
 podDisruptionBudget:
   enabled: false
   minAvailable: 1
 
-# Network Policy
 networkPolicy:
   enabled: false
   ingress:

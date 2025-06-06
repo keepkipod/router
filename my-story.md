@@ -23,3 +23,4 @@ networkPolicy:
   enabled: false
 so I can get on with all other stuff
 
+Still not sure why the apps are being deployed right away and not waiting to become ready before moving on to next sync-wave
