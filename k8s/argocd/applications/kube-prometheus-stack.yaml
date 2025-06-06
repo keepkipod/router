@@ -10,7 +10,6 @@ metadata:
 spec:
   project: default
   sources:
-    # First source: Helm chart
     - repoURL: https://prometheus-community.github.io/helm-charts
       chart: kube-prometheus-stack
       targetRevision: 73.2.0
@@ -31,9 +30,9 @@ spec:
                 requests:
                   cpu: 200m
                   memory: 200Mi
-                limits:
-                  cpu: 500m
-                  memory: 512Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
               serviceMonitorSelectorNilUsesHelmValues: false
               serviceMonitorSelector: {}
               serviceMonitorNamespaceSelector: {}
@@ -55,8 +54,8 @@ spec:
                 label: grafana_dashboard
                 labelValue: "1"
                 searchNamespace: ALL
+                folderAnnotation: grafana_folder
                 provider:
-                  disableDelete: false
                   allowUiUpdates: true
             # Import community dashboards
             dashboardProviders:
@@ -98,7 +97,6 @@ spec:
                   cpu: 50m
                   memory: 50Mi
     
-    # Second source: Custom dashboards from the repo
     - repoURL: https://github.com/keepkipod/router.git
       targetRevision: HEAD
       path: k8s/monitoring
