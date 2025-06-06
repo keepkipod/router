@@ -1,0 +1,10 @@
+# Development dependencies
+pytest==8.4.0
+pytest-asyncio==1.0.0
+pytest-cov==6.1.1
+black==25.1.0
+flake8==7.2.0
+mypy==1.16.0
+isort==6.0.1
+bandit==1.8.3
+safety==3.5.2

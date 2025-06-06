@@ -1,31 +1,55 @@
+"""Authentication module for API key validation."""
+import json
+import logging
+from typing import Optional, Dict
 from fastapi import HTTPException, Security, status
 from fastapi.security import APIKeyHeader
-import os
-import hashlib
+from config import settings
 
+logger = logging.getLogger(__name__)
+
+# API Key header configuration
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-# In production, store these in a secret manager
-VALID_API_KEYS = {
-    hashlib.sha256(key.encode()).hexdigest(): name 
-    for name, key in {
-        "client1": os.getenv("API_KEY_CLIENT1", "demo-key-1"),
-        "client2": os.getenv("API_KEY_CLIENT2", "demo-key-2"),
-    }.items()
-}
+# Load valid API keys
+def load_api_keys() -> Dict[str, str]:
+    """Load API keys from configuration."""
+    api_keys = {}
 
-async def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
+    if settings.api_keys_json:
+        try:
+            api_keys = json.loads(settings.api_keys_json)
+            logger.info(f"Loaded {len(api_keys)} API keys from configuration")
+        except json.JSONDecodeError:
+            logger.error("Failed to parse API_KEYS_JSON - ensure it's valid JSON")
+
+    if not api_keys and settings.api_key_enabled:
+        logger.warning("API authentication is enabled but no API keys are configured!")
+
+    return api_keys
+
+
+# Initialize API keys
+VALID_API_KEYS = load_api_keys()
+
+
+async def verify_api_key(api_key: str = Security(API_KEY_HEADER)) -> Optional[str]:
+    """Verify API key if authentication is enabled."""
+    if not settings.api_key_enabled:
+        return "anonymous"
+
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key required"
+            detail="API key required",
+            headers={"WWW-Authenticate": "ApiKey"},
         )
-    
-    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
-    if key_hash not in VALID_API_KEYS:
+
+    if api_key not in VALID_API_KEYS:
+        logger.warning(f"Invalid API key attempt: {api_key[:8]}...")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API key"
         )
-    
-    return VALID_API_KEYS[key_hash]
+
+    return VALID_API_KEYS[api_key]
