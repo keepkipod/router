@@ -44,10 +44,6 @@ spec:
               cpu: 100m
               memory: 128Mi
           
-          extraContainerVolumes:
-            - name: sc-dashboard-volume
-              mountPath: /tmp/dashboards
-          
           # Sidecar configuration
           sidecar:
             dashboards:
@@ -55,20 +51,18 @@ spec:
               label: grafana_dashboard
               labelValue: "1"
               searchNamespace: ALL
-              folder: /tmp/dashboards
               folderAnnotation: grafana_folder
               defaultFolderName: "General"
-              # Disable reload URL to prevent errors
-              resource: both
-              reloadURL: ""
-              env: {}
+              provider:
+                allowUiUpdates: true
+                disableDelete: false
+                foldersFromFilesStructure: false
           
-          # Dashboard providers
+          # Dashboard providers configuration
           dashboardProviders:
             dashboardproviders.yaml:
               apiVersion: 1
               providers:
-              # Provider for community dashboards
               - name: 'default'
                 orgId: 1
                 folder: 'Default'
@@ -78,9 +72,10 @@ spec:
                 allowUiUpdates: true
                 options:
                   path: /var/lib/grafana/dashboards/default
+              # Add provider for sidecar dashboards
               - name: 'sidecar'
                 orgId: 1
-                folder: 'Custom'
+                folder: 'Custom Dashboards'
                 type: file
                 disableDeletion: false
                 updateIntervalSeconds: 10
@@ -99,17 +94,6 @@ spec:
                 gnetId: 7249
                 revision: 1
                 datasource: Prometheus
-          
-          # Additional volume mounts for main container
-          extraVolumeMounts:
-            - name: sc-dashboard-volume
-              mountPath: /tmp/dashboards
-              readOnly: true
-          
-          # Shared volume between sidecar and main container
-          extraVolumes:
-            - name: sc-dashboard-volume
-              emptyDir: {}
         
         kubeEtcd:
           enabled: false
@@ -145,7 +129,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   annotations:
-    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-wave: "3"
 spec:
   project: default
   source:
