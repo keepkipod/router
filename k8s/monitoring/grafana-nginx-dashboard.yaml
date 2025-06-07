@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: grafana-nginx-dashboard
+  name: grafana-nginx-golden-signals
   namespace: monitoring
   labels:
     grafana_dashboard: "1"
@@ -96,7 +96,44 @@ data:
               },
               "unit": "reqps"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-1.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 1"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-2.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 2"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-3.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 3"
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
@@ -130,7 +167,7 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Request Rate by Pod",
+          "title": "Request Rate by Cell",
           "type": "timeseries"
         },
         {
@@ -277,11 +314,48 @@ data:
               },
               "unit": "percent"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-1.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 1 - 5xx Error Rate"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-2.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 2 - 5xx Error Rate"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-3.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 3 - 5xx Error Rate"
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 24,
             "x": 0,
             "y": 10
           },
@@ -305,81 +379,14 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "(sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\",status=~\"5..\"}[5m])) / sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))) * 100 or on(pod) (sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m])) * 0)",
-              "legendFormat": "{{ pod }} - 5xx Error Rate",
+              "expr": "(sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\",status=~\"5..\"}[5m])) / sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))) * 100 or on(pod) (sum by (pod) (up{job=\"nginx-exporter\"}) * 0)",
+              "legendFormat": "{{ pod }}",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "5xx Error Rate by Pod (%)",
+          "title": "5xx Error Rate by Cell (%)",
           "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "align": "auto",
-                "displayMode": "auto"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 10
-          },
-          "id": 11,
-          "options": {
-            "showHeader": true
-          },
-          "pluginVersion": "10.0.0",
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum by (pod, status) (increase(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))",
-              "format": "table",
-              "instant": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Request Count by Status Code",
-          "transformations": [
-            {
-              "id": "organize",
-              "options": {
-                "excludeByName": {
-                  "Time": true
-                },
-                "indexByName": {},
-                "renameByName": {
-                  "Value": "Count",
-                  "pod": "Pod",
-                  "status": "Status Code"
-                }
-              }
-            }
-          ],
-          "type": "table"
         },
         {
           "collapsed": false,
@@ -399,7 +406,7 @@ data:
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "description": "NGINX doesn't provide request duration metrics by default. This shows connection processing time.",
+          "description": "Since NGINX doesn't provide true request latency metrics, this panel shows latency from the Router's perspective for each cell",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -445,7 +452,7 @@ data:
                   }
                 ]
               },
-              "unit": "ms"
+              "unit": "s"
             },
             "overrides": []
           },
@@ -475,13 +482,101 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "avg by (pod) (nginx_connections_waiting{job=\"nginx-exporter\"} / (nginx_connections_active{job=\"nginx-exporter\"} + 1)) * 1000",
-              "legendFormat": "{{ pod }} - Avg Connection Time",
+              "expr": "histogram_quantile(0.50, sum(rate(router_request_duration_seconds_bucket{cell_id=\"1\"}[5m])) by (le))",
+              "legendFormat": "Cell 1 - P50",
               "range": true,
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.95, sum(rate(router_request_duration_seconds_bucket{cell_id=\"1\"}[5m])) by (le))",
+              "legendFormat": "Cell 1 - P95",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.99, sum(rate(router_request_duration_seconds_bucket{cell_id=\"1\"}[5m])) by (le))",
+              "legendFormat": "Cell 1 - P99",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.50, sum(rate(router_request_duration_seconds_bucket{cell_id=\"2\"}[5m])) by (le))",
+              "legendFormat": "Cell 2 - P50",
+              "range": true,
+              "refId": "D"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.95, sum(rate(router_request_duration_seconds_bucket{cell_id=\"2\"}[5m])) by (le))",
+              "legendFormat": "Cell 2 - P95",
+              "range": true,
+              "refId": "E"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.99, sum(rate(router_request_duration_seconds_bucket{cell_id=\"2\"}[5m])) by (le))",
+              "legendFormat": "Cell 2 - P99",
+              "range": true,
+              "refId": "F"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.50, sum(rate(router_request_duration_seconds_bucket{cell_id=\"3\"}[5m])) by (le))",
+              "legendFormat": "Cell 3 - P50",
+              "range": true,
+              "refId": "G"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.95, sum(rate(router_request_duration_seconds_bucket{cell_id=\"3\"}[5m])) by (le))",
+              "legendFormat": "Cell 3 - P95",
+              "range": true,
+              "refId": "H"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.99, sum(rate(router_request_duration_seconds_bucket{cell_id=\"3\"}[5m])) by (le))",
+              "legendFormat": "Cell 3 - P99",
+              "range": true,
+              "refId": "I"
             }
           ],
-          "title": "Average Connection Processing Time (Estimated)",
+          "title": "Request Duration (Router Perspective)",
           "type": "timeseries"
         },
         {
@@ -557,7 +652,44 @@ data:
               },
               "unit": "short"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-1.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 1 - Active"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-2.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 2 - Active"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": "/.*nginx-3.*/"
+                },
+                "properties": [
+                  {
+                    "id": "displayName",
+                    "value": "Cell 3 - Active"
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
@@ -586,12 +718,12 @@ data:
               },
               "editorMode": "code",
               "expr": "nginx_connections_active{job=\"nginx-exporter\"}",
-              "legendFormat": "{{ pod }} - Active",
+              "legendFormat": "{{ pod }}",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Active Connections by Pod",
+          "title": "Active Connections by Cell",
           "type": "timeseries"
         },
         {
@@ -602,45 +734,25 @@ data:
           "fieldConfig": {
             "defaults": {
               "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "tooltip": false,
-                  "viz": false,
-                  "legend": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 2,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "never",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "normal"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
+                "mode": "thresholds"
               },
               "mappings": [],
+              "max": 1000,
+              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 500
+                  },
+                  {
+                    "color": "red",
+                    "value": 800
                   }
                 ]
               },
@@ -656,17 +768,17 @@ data:
           },
           "id": 31,
           "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
+            "orientation": "auto",
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ]
             },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
           },
+          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": {
@@ -674,36 +786,14 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "nginx_connections_reading{job=\"nginx-exporter\"}",
-              "legendFormat": "{{ pod }} - Reading",
+              "expr": "sum(nginx_connections_active{job=\"nginx-exporter\"})",
+              "legendFormat": "Total Active",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "nginx_connections_writing{job=\"nginx-exporter\"}",
-              "legendFormat": "{{ pod }} - Writing",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "nginx_connections_waiting{job=\"nginx-exporter\"}",
-              "legendFormat": "{{ pod }} - Waiting",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "Connection States by Pod",
-          "type": "timeseries"
+          "title": "Total Active Connections",
+          "type": "gauge"
         },
         {
           "datasource": {
@@ -773,21 +863,6 @@ data:
                   "instance": "IP Address",
                   "pod": "Pod Name",
                   "container": "Container"
-                }
-              }
-            },
-            {
-              "id": "calculateField",
-              "options": {
-                "mode": "string",
-                "reduce": {
-                  "reducer": "allValues"
-                },
-                "alias": "Cell ID",
-                "replaceFields": false,
-                "binary": {
-                  "left": "Pod Name",
-                  "operator": "/"
                 }
               }
             }
