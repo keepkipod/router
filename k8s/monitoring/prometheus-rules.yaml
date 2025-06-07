@@ -1,157 +1,155 @@
-apiVersion: v1
-kind: ConfigMap
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
 metadata:
-  name: prometheus-rules
+  name: nginx-alerts
   namespace: monitoring
   labels:
     prometheus: kube-prometheus
-data:
-  nginx-rules.yaml: |
-    groups:
-    - name: nginx.rules
-      interval: 30s
-      rules:
-      # NGINX Golden Signals
-      - alert: NginxHighErrorRate
-        expr: |
-          (sum(rate(nginx_http_requests_total{status=~"5.."}[5m])) by (instance, cell)
-          /
-          sum(rate(nginx_http_requests_total[5m])) by (instance, cell)) > 0.05
-        for: 5m
-        labels:
-          severity: warning
-          component: nginx
-        annotations:
-          summary: "High error rate on NGINX {{ $labels.instance }}"
-          description: "NGINX instance {{ $labels.instance }} (cell {{ $labels.cell }}) has error rate of {{ $value | humanizePercentage }}"
-      
-      - alert: NginxDown
-        expr: up{job="nginx"} == 0
-        for: 2m
-        labels:
-          severity: critical
-          component: nginx
-        annotations:
-          summary: "NGINX instance down"
-          description: "NGINX instance {{ $labels.instance }} has been down for more than 2 minutes"
-      
-      - alert: NginxHighLatency
-        expr: |
-          histogram_quantile(0.95,
-            sum(rate(nginx_http_request_duration_seconds_bucket[5m])) by (instance, le)
-          ) > 1
-        for: 5m
-        labels:
-          severity: warning
-          component: nginx
-        annotations:
-          summary: "High latency on NGINX {{ $labels.instance }}"
-          description: "95th percentile latency is {{ $value }}s"
-      
-      - alert: NginxHighConnections
-        expr: nginx_connections_active / nginx_connections_limit > 0.8
-        for: 5m
-        labels:
-          severity: warning
-          component: nginx
-        annotations:
-          summary: "High connection usage on NGINX {{ $labels.instance }}"
-          description: "NGINX is using {{ $value | humanizePercentage }} of connection limit"
+    role: alert-rules
+spec:
+  groups:
+  - name: nginx.rules
+    interval: 30s
+    rules:
+    # NGINX Golden Signals
+    - alert: NginxHighErrorRate
+      expr: |
+        (sum(rate(nginx_http_requests_total{status=~"5.."}[5m])) by (instance, cell)
+        /
+        sum(rate(nginx_http_requests_total[5m])) by (instance, cell)) > 0.05
+      for: 5m
+      labels:
+        severity: warning
+        component: nginx
+      annotations:
+        summary: "High error rate on NGINX {{ $labels.instance }}"
+        description: "NGINX instance {{ $labels.instance }} (cell {{ $labels.cell }}) has error rate of {{ $value | humanizePercentage }}"
 
-    - name: router.rules
-      interval: 30s
-      rules:
-      # Router Application Golden Signals
-      - alert: RouterHighErrorRate
-        expr: |
-          (sum(rate(router_requests_total{status=~"5.."}[5m])) by (cell_id)
-          /
-          sum(rate(router_requests_total[5m])) by (cell_id)) > 0.05
-        for: 5m
-        labels:
-          severity: warning
-          component: router
-        annotations:
-          summary: "High error rate for cell {{ $labels.cell_id }}"
-          description: "Router has error rate of {{ $value | humanizePercentage }} for cell {{ $labels.cell_id }}"
-      
-      - alert: RouterHighLatency
-        expr: |
-          histogram_quantile(0.95,
-            sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le)
-          ) > 2
-        for: 5m
-        labels:
-          severity: warning
-          component: router
-        annotations:
-          summary: "High latency for cell {{ $labels.cell_id }}"
-          description: "95th percentile latency is {{ $value }}s for cell {{ $labels.cell_id }}"
-      
-      - alert: RouterUpstreamErrors
-        expr: rate(router_upstream_errors_total[5m]) > 0.1
-        for: 5m
-        labels:
-          severity: critical
-          component: router
-        annotations:
-          summary: "High upstream error rate"
-          description: "Router experiencing {{ $value }} errors/sec to upstream {{ $labels.upstream }}"
-      
-      - alert: RouterPodNotReady
-        expr: |
-          kube_pod_container_status_ready{namespace="router", container="router"} == 0
-        for: 5m
-        labels:
-          severity: critical
-          component: router
-        annotations:
-          summary: "Router pod not ready"
-          description: "Router pod {{ $labels.pod }} has been not ready for 5 minutes"
-      
-      - alert: RouterHighMemoryUsage
-        expr: |
-          container_memory_usage_bytes{namespace="router", container="router"}
-          / 
-          container_spec_memory_limit_bytes{namespace="router", container="router"} > 0.9
-        for: 5m
-        labels:
-          severity: warning
-          component: router
-        annotations:
-          summary: "High memory usage in router"
-          description: "Router pod {{ $labels.pod }} using {{ $value | humanizePercentage }} of memory limit"
-      
-      - alert: RouterHighCPUUsage
-        expr: |
-          rate(container_cpu_usage_seconds_total{namespace="router", container="router"}[5m]) > 0.8
-        for: 5m
-        labels:
-          severity: warning
-          component: router
-        annotations:
-          summary: "High CPU usage in router"
-          description: "Router pod {{ $labels.pod }} using {{ $value | humanizePercentage }} CPU"
+    - alert: NginxDown
+      expr: up{job=~"nginx.*"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        component: nginx
+      annotations:
+        summary: "NGINX instance down"
+        description: "NGINX instance {{ $labels.instance }} has been down for more than 2 minutes"
 
-    - name: cluster.rules
-      interval: 30s
-      rules:
-      - alert: NodeNotReady
-        expr: kube_node_status_condition{condition="Ready",status="true"} == 0
-        for: 5m
-        labels:
-          severity: critical
-          component: cluster
-        annotations:
-          summary: "Kubernetes node not ready"
-          description: "Node {{ $labels.node }} has been not ready for 5 minutes"
-      
-      - alert: PodCrashLooping
-        expr: rate(kube_pod_container_status_restarts_total[5m]) > 0
-        for: 5m
-        labels:
-          severity: warning
-          component: cluster
-        annotations:
-          summary: "Pod crash looping"
-          description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+    - alert: NginxHighLatency
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(nginx_http_request_duration_seconds_bucket[5m])) by (instance, le)
+        ) > 1
+      for: 5m
+      labels:
+        severity: warning
+        component: nginx
+      annotations:
+        summary: "High latency on NGINX {{ $labels.instance }}"
+        description: "95th percentile latency is {{ $value }}s"
+
+    - alert: NginxHighConnections
+      expr: nginx_connections_active > 100
+      for: 5m
+      labels:
+        severity: warning
+        component: nginx
+      annotations:
+        summary: "High connection count on NGINX {{ $labels.instance }}"
+        description: "NGINX has {{ $value }} active connections"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: router-alerts
+  namespace: monitoring
+  labels:
+    prometheus: kube-prometheus
+    role: alert-rules
+spec:
+  groups:
+  - name: router.rules
+    interval: 30s
+    rules:
+    # Router Application Golden Signals
+    - alert: RouterHighErrorRate
+      expr: |
+        (sum(rate(router_requests_total{status=~"5..",cell_id=~"1|2|3"}[5m])) by (cell_id)
+        /
+        sum(rate(router_requests_total{cell_id=~"1|2|3"}[5m])) by (cell_id)) > 0.05
+      for: 5m
+      labels:
+        severity: warning
+        component: router
+      annotations:
+        summary: "High error rate for cell {{ $labels.cell_id }}"
+        description: "Router has error rate of {{ $value | humanizePercentage }} for cell {{ $labels.cell_id }}"
+
+    - alert: RouterHighLatency
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le)
+        ) > 2
+      for: 5m
+      labels:
+        severity: warning
+        component: router
+      annotations:
+        summary: "High latency for cell {{ $labels.cell_id }}"
+        description: "95th percentile latency is {{ $value }}s for cell {{ $labels.cell_id }}"
+
+    - alert: RouterUpstreamErrors
+      expr: rate(router_upstream_errors_total[5m]) > 0.1
+      for: 5m
+      labels:
+        severity: critical
+        component: router
+      annotations:
+        summary: "High upstream error rate"
+        description: "Router experiencing {{ $value }} errors/sec to upstream {{ $labels.upstream }}"
+
+    - alert: RouterPodNotReady
+      expr: |
+        kube_pod_container_status_ready{namespace="router", container="router"} == 0
+      for: 5m
+      labels:
+        severity: critical
+        component: router
+      annotations:
+        summary: "Router pod not ready"
+        description: "Router pod {{ $labels.pod }} has been not ready for 5 minutes"
+
+    - alert: RouterHighMemoryUsage
+      expr: |
+        container_memory_working_set_bytes{namespace="router", container="router"}
+        /
+        container_spec_memory_limit_bytes{namespace="router", container="router"} > 0.9
+      for: 5m
+      labels:
+        severity: warning
+        component: router
+      annotations:
+        summary: "High memory usage in router"
+        description: "Router pod {{ $labels.pod }} using {{ $value | humanizePercentage }} of memory limit"
+
+    - alert: RouterHighCPUUsage
+      expr: |
+        rate(container_cpu_usage_seconds_total{namespace="router", container="router"}[5m]) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        component: router
+      annotations:
+        summary: "High CPU usage in router"
+        description: "Router pod {{ $labels.pod }} using {{ $value | humanizePercentage }} CPU"
+
+    - alert: RouterNoTraffic
+      expr: |
+        sum(rate(router_requests_total{cell_id=~"1|2|3"}[5m])) == 0
+      for: 10m
+      labels:
+        severity: warning
+        component: router
+      annotations:
+        summary: "No traffic to router"
+        description: "Router has received no requests for valid cells in the last 10 minutes"
