@@ -1,8 +1,8 @@
 # Cell Router - Kubernetes Production Simulation
 
-A production-grade Kubernetes system simulating a multi-cell architecture with intelligent request routing, comprehensive observability, and GitOps deployment. The system consists of a Python-based router that directs traffic to three independent NGINX cells based on request payload, with full monitoring via Prometheus/Grafana and automated deployment through ArgoCD.
+A production-grade Kubernetes system simulating a multi-cell architecture with intelligent request routing, observability, and GitOps deployment. The system consists of a Python-based router that directs traffic to three independent NGINX cells based on request payload, with monitoring via Prometheus/Grafana and automated deployment through ArgoCD.
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 - **Router Service**: FastAPI application that inspects request body and routes to appropriate NGINX cell
 - **3 NGINX Cells**: Independent deployments serving as backend services
@@ -10,16 +10,11 @@ A production-grade Kubernetes system simulating a multi-cell architecture with i
 - **GitOps**: ArgoCD managing all deployments with proper dependency ordering
 - **Local Kubernetes**: Kind cluster with 3 worker nodes
 
-## 🚀 Quick Start
-
-### Prerequisites
-
-- Docker (or Colima on macOS)
-- Git
-- 8GB+ RAM available
-- Linux/macOS (or WSL2 on Windows)
+## Quick Start
 
 ### 1. Setup Dependencies
+
+(tested on Macbook Pro with M3 + Colima + KinD)
 
 ```bash
 # Clone the repository
@@ -44,14 +39,7 @@ colima start --cpu 6 --memory 12 --kubernetes
 task deploy-all-argocd
 ```
 
-### 3. Build Router Image
-
-```bash
-# Build and load the router Docker image
-task build-app
-```
-
-## 🧪 Testing the System
+## Testing the System
 
 ### Access Points
 
@@ -64,7 +52,7 @@ task port-forward-ingress
 task port-forward-argocd
 # Access: http://localhost:8081
 # Username: admin
-# Password: (shown in terminal)
+# In order to obtain Password, execute: task get-argocd-password
 
 # Grafana Dashboards
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
@@ -122,7 +110,7 @@ python scripts/fuzzy-load-test.py
 # - Shows real-time statistics
 ```
 
-## 📊 Monitoring
+## Monitoring
 
 ### Grafana Dashboards
 
@@ -146,30 +134,7 @@ Key alerts configured:
 
 Check firing alerts and silences at http://localhost:9093
 
-## 🔍 Troubleshooting
-
-```bash
-# Check application status
-task status
-
-# View router logs
-task logs
-
-# Check all pods
-kubectl get pods -A
-
-# Verify ArgoCD applications
-task get-apps-status
-```
-
-## 📝 Implementation Notes
-
-### Design Decisions
-
-- **No Cloud Dependencies**: Used Kubernetes secrets instead of external secret stores for simplicity
-- **GitOps Approach**: ArgoCD manages all deployments for consistency and auditability  
-- **Prometheus Operator**: Simplified monitoring setup with ServiceMonitors and PrometheusRules
-- **Kind Cluster**: Lightweight local Kubernetes for development
+## Implementation Notes
 
 ### Areas for Improvement
 
@@ -182,14 +147,13 @@ Given more time, I would implement:
 
 2. **Scaling & Performance**
    - KEDA for autoscaling based on custom metrics
-   - Distributed tracing with Jaeger
    - Rate limiting per API key
 
 3. **Production Readiness**
    - Distroless container images
    - Proper ingress rate limiting
    - External DNS configuration
-   - Backup and disaster recovery procedures
+   - Cert-manager - TLS
 
 4. **Better Observability**
    - Real latency metrics from NGINX (requires additional modules)
@@ -202,17 +166,9 @@ Given more time, I would implement:
 - NetworkPolicy blocks some legitimate traffic when enabled
 - Resource constraints with Colima require careful allocation
 
-## 🛠️ Development
+## Cleanup
 
 ```bash
-# Run router locally
-cd router
-pip install -r requirements.txt
-python src/main.py
-
-# Run tests
-pytest tests/
-
-# Clean up everything
+# Destroy local kind cluster
 task clean
 ```
