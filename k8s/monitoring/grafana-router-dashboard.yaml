@@ -8,238 +8,467 @@ metadata:
 data:
   router-golden-signals.json: |
     {
-      "dashboard": {
-        "title": "Cell Router - Golden Signals",
-        "uid": "cell-router-golden",
-        "tags": ["router", "golden-signals", "custom"],
-        "timezone": "browser",
-        "schemaVersion": 30,
-        "version": 1,
-        "panels": [
+      "annotations": {
+        "list": [
           {
-            "title": "🚦 Traffic - Request Rate by Cell",
-            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "sum(rate(router_requests_total[5m])) by (cell_id)",
-                "legendFormat": "Cell {{cell_id}}",
-                "refId": "A"
-              }
-            ],
-            "yaxes": [
-              {
-                "format": "reqps",
-                "label": "Requests/sec"
-              },
-              {
-                "format": "short"
-              }
-            ]
-          },
-          {
-            "title": "❌ Errors - Error Rate (%)",
-            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "(sum(rate(router_requests_total{status=~\"5..\"}[5m])) by (cell_id) / sum(rate(router_requests_total[5m])) by (cell_id)) * 100",
-                "legendFormat": "Cell {{cell_id}}",
-                "refId": "A"
-              }
-            ],
-            "yaxes": [
-              {
-                "format": "percent",
-                "label": "Error %"
-              },
-              {
-                "format": "short"
-              }
-            ],
-            "alert": {
-              "conditions": [
-                {
-                  "evaluator": {
-                    "params": [5],
-                    "type": "gt"
-                  },
-                  "operator": {
-                    "type": "and"
-                  },
-                  "query": {
-                    "params": ["A", "5m", "now"]
-                  },
-                  "reducer": {
-                    "params": [],
-                    "type": "avg"
-                  },
-                  "type": "query"
-                }
-              ],
-              "name": "High Error Rate Alert"
-            }
-          },
-          {
-            "title": "⏱️ Latency - Request Duration (P50, P95, P99)",
-            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "histogram_quantile(0.50, sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le))",
-                "legendFormat": "P50 Cell {{cell_id}}",
-                "refId": "A"
-              },
-              {
-                "expr": "histogram_quantile(0.95, sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le))",
-                "legendFormat": "P95 Cell {{cell_id}}",
-                "refId": "B"
-              },
-              {
-                "expr": "histogram_quantile(0.99, sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le))",
-                "legendFormat": "P99 Cell {{cell_id}}",
-                "refId": "C"
-              }
-            ],
-            "yaxes": [
-              {
-                "format": "s",
-                "label": "Duration"
-              },
-              {
-                "format": "short"
-              }
-            ]
-          },
-          {
-            "title": "📊 Saturation - CPU Usage",
-            "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8},
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"router\",container=\"router\"}[5m])) by (pod) * 100",
-                "legendFormat": "{{pod}}",
-                "refId": "A"
-              }
-            ],
-            "yaxes": [
-              {
-                "format": "percent",
-                "label": "CPU %"
-              },
-              {
-                "format": "short"
-              }
-            ]
-          },
-          {
-            "title": "📊 Saturation - Memory Usage",
-            "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8},
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "sum(container_memory_usage_bytes{namespace=\"router\",container=\"router\"}) by (pod) / 1024 / 1024",
-                "legendFormat": "{{pod}}",
-                "refId": "A"
-              }
-            ],
-            "yaxes": [
-              {
-                "format": "decmbytes",
-                "label": "Memory"
-              },
-              {
-                "format": "short"
-              }
-            ]
-          },
-          {
-            "title": "🔴 Upstream Errors by Cell",
-            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "sum(rate(router_upstream_errors_total[5m])) by (upstream)",
-                "legendFormat": "{{upstream}}",
-                "refId": "A"
-              }
-            ]
-          },
-          {
-            "title": "🔐 Authentication Failures",
-            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
-            "type": "graph",
-            "targets": [
-              {
-                "expr": "sum(rate(router_auth_failures_total[5m])) by (reason)",
-                "legendFormat": "{{reason}}",
-                "refId": "A"
-              }
-            ]
-          },
-          {
-            "title": "📈 Total Requests (Counter)",
-            "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "sum(router_requests_total)",
-                "refId": "A"
-              }
-            ],
-            "options": {
-              "colorMode": "value",
-              "graphMode": "area"
-            }
-          },
-          {
-            "title": "✅ Success Rate",
-            "gridPos": {"h": 4, "w": 6, "x": 6, "y": 24},
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "(1 - (sum(rate(router_requests_total{status=~\"5..\"}[5m])) / sum(rate(router_requests_total[5m])))) * 100",
-                "refId": "A"
-              }
-            ],
-            "options": {
-              "colorMode": "value",
-              "graphMode": "area",
-              "unit": "percent"
-            }
-          },
-          {
-            "title": "⚡ Current QPS",
-            "gridPos": {"h": 4, "w": 6, "x": 12, "y": 24},
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "sum(rate(router_requests_total[1m]))",
-                "refId": "A"
-              }
-            ],
-            "options": {
-              "colorMode": "value",
-              "graphMode": "area",
-              "unit": "reqps"
-            }
-          },
-          {
-            "title": "🎯 P95 Latency",
-            "gridPos": {"h": 4, "w": 6, "x": 18, "y": 24},
-            "type": "stat",
-            "targets": [
-              {
-                "expr": "histogram_quantile(0.95, sum(rate(router_request_duration_seconds_bucket[5m])) by (le))",
-                "refId": "A"
-              }
-            ],
-            "options": {
-              "colorMode": "value",
-              "graphMode": "area",
-              "unit": "s"
-            }
+            "builtIn": 1,
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${DS_PROMETHEUS}"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "type": "dashboard"
           }
         ]
-      }
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "liveNow": false,
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(router_requests_total[5m])) by (cell_id)",
+              "legendFormat": "Cell {{cell_id}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "🚦 Traffic - Request Rate by Cell",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "id": 2,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "(sum(rate(router_requests_total{status=~\"5..\"}[5m])) by (cell_id) / sum(rate(router_requests_total[5m])) by (cell_id)) * 100",
+              "legendFormat": "Cell {{cell_id}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "❌ Errors - Error Rate (%)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "tooltip": false,
+                  "viz": false,
+                  "legend": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 8
+          },
+          "id": 3,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.50, sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le))",
+              "legendFormat": "P50 Cell {{cell_id}}",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.95, sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le))",
+              "legendFormat": "P95 Cell {{cell_id}}",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.99, sum(rate(router_request_duration_seconds_bucket[5m])) by (cell_id, le))",
+              "legendFormat": "P99 Cell {{cell_id}}",
+              "range": true,
+              "refId": "C"
+            }
+          ],
+          "title": "⏱️ Latency - Request Duration (P50, P95, P99)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 12,
+            "y": 8
+          },
+          "id": 4,
+          "options": {
+            "orientation": "auto",
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "avg(rate(container_cpu_usage_seconds_total{namespace=\"router\",container=\"router\"}[5m])) * 100",
+              "legendFormat": "CPU Usage",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "📊 Saturation - CPU Usage",
+          "type": "gauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 70
+                  },
+                  {
+                    "color": "red",
+                    "value": 90
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 6,
+            "x": 18,
+            "y": 8
+          },
+          "id": 5,
+          "options": {
+            "orientation": "auto",
+            "reduceOptions": {
+              "values": false,
+              "calcs": [
+                "lastNotNull"
+              ]
+            },
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "editorMode": "code",
+              "expr": "avg(container_memory_usage_bytes{namespace=\"router\",container=\"router\"} / container_spec_memory_limit_bytes{namespace=\"router\",container=\"router\"}) * 100",
+              "legendFormat": "Memory Usage",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "📊 Saturation - Memory Usage",
+          "type": "gauge"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": ["router", "golden-signals", "custom"],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "selected": false,
+              "text": "Prometheus",
+              "value": "prometheus"
+            },
+            "hide": 0,
+            "includeAll": false,
+            "label": "Data Source",
+            "multi": false,
+            "name": "DS_PROMETHEUS",
+            "options": [],
+            "query": "prometheus",
+            "refresh": 1,
+            "regex": "",
+            "skipUrlSync": false,
+            "type": "datasource"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-30m",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Cell Router - Golden Signals",
+      "uid": "cell-router-golden",
+      "version": 1,
+      "weekStart": ""
     }
