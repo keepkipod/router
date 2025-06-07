@@ -1,66 +1,6 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: nginx-alerts
-  namespace: monitoring
-  labels:
-    prometheus: kube-prometheus
-    role: alert-rules
-spec:
-  groups:
-  - name: nginx.rules
-    interval: 30s
-    rules:
-    # NGINX Golden Signals
-    - alert: NginxHighErrorRate
-      expr: |
-        (sum(rate(nginx_http_requests_total{status=~"5.."}[5m])) by (instance, cell)
-        /
-        sum(rate(nginx_http_requests_total[5m])) by (instance, cell)) > 0.05
-      for: 5m
-      labels:
-        severity: warning
-        component: nginx
-      annotations:
-        summary: "High error rate on NGINX {{ $labels.instance }}"
-        description: "NGINX instance {{ $labels.instance }} (cell {{ $labels.cell }}) has error rate of {{ $value | humanizePercentage }}"
-
-    - alert: NginxDown
-      expr: up{job=~"nginx.*"} == 0
-      for: 2m
-      labels:
-        severity: critical
-        component: nginx
-      annotations:
-        summary: "NGINX instance down"
-        description: "NGINX instance {{ $labels.instance }} has been down for more than 2 minutes"
-
-    - alert: NginxHighLatency
-      expr: |
-        histogram_quantile(0.95,
-          sum(rate(nginx_http_request_duration_seconds_bucket[5m])) by (instance, le)
-        ) > 1
-      for: 5m
-      labels:
-        severity: warning
-        component: nginx
-      annotations:
-        summary: "High latency on NGINX {{ $labels.instance }}"
-        description: "95th percentile latency is {{ $value }}s"
-
-    - alert: NginxHighConnections
-      expr: nginx_connections_active > 100
-      for: 5m
-      labels:
-        severity: warning
-        component: nginx
-      annotations:
-        summary: "High connection count on NGINX {{ $labels.instance }}"
-        description: "NGINX has {{ $value }} active connections"
----
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
-metadata:
   name: router-alerts
   namespace: monitoring
   labels:
