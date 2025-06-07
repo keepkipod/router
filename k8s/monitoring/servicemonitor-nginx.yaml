@@ -1,13 +1,13 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: nginx-cells
+  name: nginx-cells-labeled
   namespace: monitoring
   labels:
     app: nginx
     prometheus: kube-prometheus
 spec:
-  # This selector will match ALL services that have app=nginx-1, nginx-2, or nginx-3
+  jobLabel: nginx-exporter
   selector:
     matchExpressions:
     - key: app.kubernetes.io/instance
@@ -20,13 +20,18 @@ spec:
   - port: metrics
     path: /metrics
     interval: 30s
-    # These relabelings will extract the cell number from the service name
     relabelings:
-    # Extract cell number from the instance label
+    # Add cell label based on the service name
     - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_instance]
       regex: nginx-(\d+)
       targetLabel: cell
       replacement: $1
-    # Keep the original instance name as the job
+    # Add a human-readable cell name
     - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_instance]
-      targetLabel: job
+      targetLabel: cell_name
+    # Keep pod name for reference
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    # Add namespace
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
