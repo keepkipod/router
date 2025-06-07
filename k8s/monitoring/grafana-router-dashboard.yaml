@@ -257,8 +257,8 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "(sum(rate(router_requests_total{status=~\"5..\",cell_id=~\"1|2|3\"}[5m])) by (cell_id) / sum(rate(router_requests_total{cell_id=~\"1|2|3\"}[5m])) by (cell_id)) * 100",
-              "legendFormat": "Cell {{cell_id}}",
+              "expr": "clamp_min((sum(rate(router_requests_total{status=~\"5..\",cell_id=\"1\"}[5m])) / sum(rate(router_requests_total{cell_id=\"1\"}[5m]))) * 100 or vector(0), 0)",
+              "legendFormat": "Cell 1",
               "range": true,
               "refId": "A"
             },
@@ -268,8 +268,8 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "(sum(rate(router_requests_total{status=~\"5..\",cell_id=\"\"}[5m])) / sum(rate(router_requests_total{cell_id=\"\"}[5m]))) * 100",
-              "legendFormat": "No Cell ID",
+              "expr": "clamp_min((sum(rate(router_requests_total{status=~\"5..\",cell_id=\"2\"}[5m])) / sum(rate(router_requests_total{cell_id=\"2\"}[5m]))) * 100 or vector(0), 0)",
+              "legendFormat": "Cell 2",
               "range": true,
               "refId": "B"
             },
@@ -279,10 +279,32 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "(sum(rate(router_requests_total{status=~\"5..\",cell_id=\"unknown\"}[5m])) / sum(rate(router_requests_total{cell_id=\"unknown\"}[5m]))) * 100",
-              "legendFormat": "Invalid Cell ID",
+              "expr": "clamp_min((sum(rate(router_requests_total{status=~\"5..\",cell_id=\"3\"}[5m])) / sum(rate(router_requests_total{cell_id=\"3\"}[5m]))) * 100 or vector(0), 0)",
+              "legendFormat": "Cell 3",
               "range": true,
               "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "clamp_min((sum(rate(router_requests_total{status=~\"5..\",cell_id=\"\"}[5m])) / sum(rate(router_requests_total{cell_id=\"\"}[5m]))) * 100 or vector(0), 0)",
+              "legendFormat": "No Cell ID",
+              "range": true,
+              "refId": "D"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "clamp_min((sum(rate(router_requests_total{status=~\"5..\",cell_id=\"unknown\"}[5m])) / sum(rate(router_requests_total{cell_id=\"unknown\"}[5m]))) * 100 or vector(0), 0)",
+              "legendFormat": "Invalid Cell ID",
+              "range": true,
+              "refId": "E"
             }
           ],
           "title": "❌ Errors - Error Rate (%)",
@@ -318,7 +340,7 @@ data:
               {
                 "matcher": {
                   "id": "byName",
-                  "options": "Total Requests"
+                  "options": "Total Requests (5m)"
                 },
                 "properties": [
                   {
@@ -361,7 +383,7 @@ data:
             "sortBy": [
               {
                 "desc": true,
-                "displayName": "Total Requests"
+                "displayName": "Total Requests (5m)"
               }
             ]
           },
@@ -414,32 +436,6 @@ data:
                   "cell_id": "Cell ID",
                   "Value #A": "Total Requests (5m)",
                   "Value #B": "Request Rate"
-                }
-              }
-            },
-            {
-              "id": "calculateField",
-              "options": {
-                "mode": "string",
-                "reduce": {
-                  "reducer": "allValues"
-                },
-                "replaceFields": false,
-                "alias": "Description",
-                "binary": {
-                  "left": "Cell ID",
-                  "operator": "+",
-                  "right": ""
-                }
-              }
-            },
-            {
-              "id": "organize",
-              "options": {
-                "excludeByName": {},
-                "indexByName": {},
-                "renameByName": {
-                  "Description": "Type"
                 }
               }
             }
@@ -658,7 +654,7 @@ data:
           "targets": [
             {
               "editorMode": "code",
-              "expr": "avg(\n  sum(container_memory_working_set_bytes{namespace=\"router\",pod=~\"router-.*\",container!=\"\"}) by (pod)\n  /\n  sum(container_spec_memory_limit_bytes{namespace=\"router\",pod=~\"router-.*\",container!=\"\"}) by (pod)\n) * 100",
+              "expr": "max(\n  container_memory_working_set_bytes{namespace=\"router\",container=\"router\"}\n  /\n  container_spec_memory_limit_bytes{namespace=\"router\",container=\"router\"}\n) * 100",
               "legendFormat": "Memory Usage",
               "range": true,
               "refId": "A"
