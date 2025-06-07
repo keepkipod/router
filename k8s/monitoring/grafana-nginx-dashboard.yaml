@@ -124,35 +124,13 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(nginx_http_requests_total{instance=\"10.244.2.4:9113\"}[5m]))",
-              "legendFormat": "Cell 1 - Requests/sec",
+              "expr": "sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))",
+              "legendFormat": "{{ pod }}",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(rate(nginx_http_requests_total{instance=\"10.244.2.5:9113\"}[5m]))",
-              "legendFormat": "Cell 2 - Requests/sec",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(rate(nginx_http_requests_total{instance=\"10.244.2.6:9113\"}[5m]))",
-              "legendFormat": "Cell 3 - Requests/sec",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "Request Rate by Cell",
+          "title": "Request Rate by Pod",
           "type": "timeseries"
         },
         {
@@ -215,7 +193,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(nginx_http_requests_total[5m]))",
+              "expr": "sum(rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))",
               "legendFormat": "Total",
               "range": true,
               "refId": "A"
@@ -327,35 +305,13 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "(sum(rate(nginx_http_requests_total{instance=\"10.244.2.4:9113\",status=~\"5..\"}[5m])) / sum(rate(nginx_http_requests_total{instance=\"10.244.2.4:9113\"}[5m]))) * 100 or vector(0)",
-              "legendFormat": "Cell 1 - 5xx Error Rate",
+              "expr": "(sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\",status=~\"5..\"}[5m])) / sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))) * 100 or on(pod) (sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m])) * 0)",
+              "legendFormat": "{{ pod }} - 5xx Error Rate",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "(sum(rate(nginx_http_requests_total{instance=\"10.244.2.5:9113\",status=~\"5..\"}[5m])) / sum(rate(nginx_http_requests_total{instance=\"10.244.2.5:9113\"}[5m]))) * 100 or vector(0)",
-              "legendFormat": "Cell 2 - 5xx Error Rate",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "(sum(rate(nginx_http_requests_total{instance=\"10.244.2.6:9113\",status=~\"5..\"}[5m])) / sum(rate(nginx_http_requests_total{instance=\"10.244.2.6:9113\"}[5m]))) * 100 or vector(0)",
-              "legendFormat": "Cell 3 - 5xx Error Rate",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "5xx Error Rate by Cell (%)",
+          "title": "5xx Error Rate by Pod (%)",
           "type": "timeseries"
         },
         {
@@ -365,18 +321,20 @@ data:
           },
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
               "custom": {
-                "hideFrom": {
-                  "tooltip": false,
-                  "viz": false,
-                  "legend": false
-                }
+                "align": "auto",
+                "displayMode": "auto"
               },
               "mappings": [],
-              "unit": "short"
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
             },
             "overrides": []
           },
@@ -388,18 +346,9 @@ data:
           },
           "id": 11,
           "options": {
-            "legend": {
-              "displayMode": "table",
-              "placement": "right",
-              "showLegend": true,
-              "values": ["value"]
-            },
-            "pieType": "pie",
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
+            "showHeader": true
           },
+          "pluginVersion": "10.0.0",
           "targets": [
             {
               "datasource": {
@@ -407,36 +356,30 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(increase(nginx_http_requests_total{instance=\"10.244.2.4:9113\"}[5m])) by (status)",
-              "legendFormat": "Cell 1 - {{status}}",
-              "range": true,
+              "expr": "sum by (pod, status) (increase(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))",
+              "format": "table",
+              "instant": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(increase(nginx_http_requests_total{instance=\"10.244.2.5:9113\"}[5m])) by (status)",
-              "legendFormat": "Cell 2 - {{status}}",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "sum(increase(nginx_http_requests_total{instance=\"10.244.2.6:9113\"}[5m])) by (status)",
-              "legendFormat": "Cell 3 - {{status}}",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "Response Status Distribution",
-          "type": "piechart"
+          "title": "Request Count by Status Code",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true
+                },
+                "indexByName": {},
+                "renameByName": {
+                  "Value": "Count",
+                  "pod": "Pod",
+                  "status": "Status Code"
+                }
+              }
+            }
+          ],
+          "type": "table"
         },
         {
           "collapsed": false,
@@ -532,32 +475,10 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "avg(nginx_connections_waiting{instance=\"10.244.2.4:9113\"} / nginx_connections_active{instance=\"10.244.2.4:9113\"}) * 1000",
-              "legendFormat": "Cell 1 - Avg Connection Time",
+              "expr": "avg by (pod) (nginx_connections_waiting{job=\"nginx-exporter\"} / (nginx_connections_active{job=\"nginx-exporter\"} + 1)) * 1000",
+              "legendFormat": "{{ pod }} - Avg Connection Time",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "avg(nginx_connections_waiting{instance=\"10.244.2.5:9113\"} / nginx_connections_active{instance=\"10.244.2.5:9113\"}) * 1000",
-              "legendFormat": "Cell 2 - Avg Connection Time",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "avg(nginx_connections_waiting{instance=\"10.244.2.6:9113\"} / nginx_connections_active{instance=\"10.244.2.6:9113\"}) * 1000",
-              "legendFormat": "Cell 3 - Avg Connection Time",
-              "range": true,
-              "refId": "C"
             }
           ],
           "title": "Average Connection Processing Time (Estimated)",
@@ -664,35 +585,13 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "nginx_connections_active{instance=\"10.244.2.4:9113\"}",
-              "legendFormat": "Cell 1 - Active",
+              "expr": "nginx_connections_active{job=\"nginx-exporter\"}",
+              "legendFormat": "{{ pod }} - Active",
               "range": true,
               "refId": "A"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "nginx_connections_active{instance=\"10.244.2.5:9113\"}",
-              "legendFormat": "Cell 2 - Active",
-              "range": true,
-              "refId": "B"
-            },
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "nginx_connections_active{instance=\"10.244.2.6:9113\"}",
-              "legendFormat": "Cell 3 - Active",
-              "range": true,
-              "refId": "C"
             }
           ],
-          "title": "Active Connections by Cell",
+          "title": "Active Connections by Pod",
           "type": "timeseries"
         },
         {
@@ -775,8 +674,8 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "nginx_connections_reading{instance=\"10.244.2.4:9113\"}",
-              "legendFormat": "Cell 1 - Reading",
+              "expr": "nginx_connections_reading{job=\"nginx-exporter\"}",
+              "legendFormat": "{{ pod }} - Reading",
               "range": true,
               "refId": "A"
             },
@@ -786,8 +685,8 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "nginx_connections_writing{instance=\"10.244.2.4:9113\"}",
-              "legendFormat": "Cell 1 - Writing",
+              "expr": "nginx_connections_writing{job=\"nginx-exporter\"}",
+              "legendFormat": "{{ pod }} - Writing",
               "range": true,
               "refId": "B"
             },
@@ -797,13 +696,13 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "nginx_connections_waiting{instance=\"10.244.2.4:9113\"}",
-              "legendFormat": "Cell 1 - Waiting",
+              "expr": "nginx_connections_waiting{job=\"nginx-exporter\"}",
+              "legendFormat": "{{ pod }} - Waiting",
               "range": true,
               "refId": "C"
             }
           ],
-          "title": "Connection States - Cell 1",
+          "title": "Connection States by Pod",
           "type": "timeseries"
         },
         {
@@ -811,52 +710,35 @@ data:
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
+          "description": "Shows which pod belongs to which cell",
           "fieldConfig": {
             "defaults": {
-              "color": {
-                "mode": "thresholds"
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto"
               },
               "mappings": [],
-              "max": 1000,
-              "min": 0,
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 500
-                  },
-                  {
-                    "color": "red",
-                    "value": 800
                   }
                 ]
-              },
-              "unit": "short"
+              }
             },
             "overrides": []
           },
           "gridPos": {
             "h": 8,
-            "w": 8,
+            "w": 24,
             "x": 0,
             "y": 36
           },
-          "id": 40,
+          "id": 50,
           "options": {
-            "orientation": "auto",
-            "reduceOptions": {
-              "values": false,
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "showThresholdLabels": false,
-            "showThresholdMarkers": true
+            "showHeader": true
           },
           "pluginVersion": "10.0.0",
           "targets": [
@@ -866,152 +748,51 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "nginx_connections_active{instance=\"10.244.2.4:9113\"}",
-              "legendFormat": "Active",
-              "range": true,
+              "expr": "up{job=\"nginx-exporter\"}",
+              "format": "table",
+              "instant": true,
               "refId": "A"
             }
           ],
-          "title": "Cell 1 - Active Connections",
-          "type": "gauge"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "max": 1000,
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 500
-                  },
-                  {
-                    "color": "red",
-                    "value": 800
-                  }
-                ]
-              },
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 8,
-            "y": 36
-          },
-          "id": 41,
-          "options": {
-            "orientation": "auto",
-            "reduceOptions": {
-              "values": false,
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "showThresholdLabels": false,
-            "showThresholdMarkers": true
-          },
-          "pluginVersion": "10.0.0",
-          "targets": [
+          "title": "NGINX Pod to Cell Mapping",
+          "transformations": [
             {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "nginx_connections_active{instance=\"10.244.2.5:9113\"}",
-              "legendFormat": "Active",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Cell 2 - Active Connections",
-          "type": "gauge"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS_PROMETHEUS}"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "thresholds"
-              },
-              "mappings": [],
-              "max": 1000,
-              "min": 0,
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 500
-                  },
-                  {
-                    "color": "red",
-                    "value": 800
-                  }
-                ]
-              },
-              "unit": "short"
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "Value": true,
+                  "__name__": true,
+                  "job": true,
+                  "endpoint": true,
+                  "namespace": true,
+                  "service": true
+                },
+                "indexByName": {},
+                "renameByName": {
+                  "instance": "IP Address",
+                  "pod": "Pod Name",
+                  "container": "Container"
+                }
+              }
             },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 16,
-            "y": 36
-          },
-          "id": 42,
-          "options": {
-            "orientation": "auto",
-            "reduceOptions": {
-              "values": false,
-              "calcs": [
-                "lastNotNull"
-              ]
-            },
-            "showThresholdLabels": false,
-            "showThresholdMarkers": true
-          },
-          "pluginVersion": "10.0.0",
-          "targets": [
             {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "${DS_PROMETHEUS}"
-              },
-              "editorMode": "code",
-              "expr": "nginx_connections_active{instance=\"10.244.2.6:9113\"}",
-              "legendFormat": "Active",
-              "range": true,
-              "refId": "A"
+              "id": "calculateField",
+              "options": {
+                "mode": "string",
+                "reduce": {
+                  "reducer": "allValues"
+                },
+                "alias": "Cell ID",
+                "replaceFields": false,
+                "binary": {
+                  "left": "Pod Name",
+                  "operator": "/"
+                }
+              }
             }
           ],
-          "title": "Cell 3 - Active Connections",
-          "type": "gauge"
+          "type": "table"
         }
       ],
       "refresh": "5s",
