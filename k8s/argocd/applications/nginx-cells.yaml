@@ -20,7 +20,7 @@ spec:
     metadata:
       name: 'nginx-{{cell}}'
       annotations:
-        argocd.argoproj.io/sync-wave: "2"
+        argocd.argoproj.io/sync-wave: "3"
       labels:
         app.kubernetes.io/part-of: cell-router
         app.kubernetes.io/component: nginx-cell

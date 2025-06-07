@@ -4,8 +4,6 @@ metadata:
   name: {{ include "nginx-cell.fullname" . }}-config
   labels:
     {{- include "nginx-cell.labels" . | nindent 4 }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "3"
 data:
   default.conf: |
 {{ tpl .Values.nginxConfig.serverBlock . | indent 4 }}
@@ -18,8 +16,6 @@ metadata:
   name: {{ include "nginx-cell.fullname" . }}-html
   labels:
     {{- include "nginx-cell.labels" . | nindent 4 }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "3"
 data:
   index.html: |
 {{ tpl .Values.customHtml.content . | indent 4 }}

@@ -4,8 +4,6 @@ metadata:
   name: {{ include "nginx-cell.fullname" . }}
   labels:
     {{- include "nginx-cell.labels" . | nindent 4 }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "5"
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}

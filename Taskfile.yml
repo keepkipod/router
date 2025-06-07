@@ -305,3 +305,158 @@ tasks:
     desc: "Build app for k3s"
     cmds:
       - docker build -t {{.APP_NAME}}:latest ./router
+
+
+  redeploy-monitoring:
+    desc: "Completely remove and redeploy monitoring stack"
+    cmds:
+      - echo "=== Redeploying Monitoring Stack ==="
+      - task: remove-monitoring
+      - task: wait-for-removal
+      - task: deploy-monitoring
+      # - task: verify-monitoring
+
+  remove-monitoring:
+    desc: "Remove monitoring stack completely"
+    cmds:
+      - |
+        echo "1. Disabling auto-sync for monitoring apps..."
+        # Disable auto-sync to prevent ArgoCD from recreating resources
+        kubectl patch application kube-prometheus-stack -n argocd --type merge -p '{"spec":{"syncPolicy":{"automated":null}}}' || true
+        kubectl patch application custom-dashboards -n argocd --type merge -p '{"spec":{"syncPolicy":{"automated":null}}}' || true
+        
+        echo "2. Deleting ArgoCD applications..."
+        kubectl delete application kube-prometheus-stack -n argocd --ignore-not-found=true
+        kubectl delete application custom-dashboards -n argocd --ignore-not-found=true
+        
+        echo "3. Removing monitoring namespace (this removes all resources)..."
+        kubectl delete namespace monitoring --ignore-not-found=true
+        
+        echo "4. Cleaning up any remaining CRDs..."
+        kubectl delete crd prometheuses.monitoring.coreos.com --ignore-not-found=true
+        kubectl delete crd prometheusrules.monitoring.coreos.com --ignore-not-found=true
+        kubectl delete crd servicemonitors.monitoring.coreos.com --ignore-not-found=true
+        kubectl delete crd podmonitors.monitoring.coreos.com --ignore-not-found=true
+        kubectl delete crd alertmanagers.monitoring.coreos.com --ignore-not-found=true
+        kubectl delete crd alertmanagerconfigs.monitoring.coreos.com --ignore-not-found=true
+        kubectl delete crd probes.monitoring.coreos.com --ignore-not-found=true
+        kubectl delete crd thanosrulers.monitoring.coreos.com --ignore-not-found=true
+
+  wait-for-removal:
+    desc: "Wait for monitoring namespace to be completely removed"
+    cmds:
+      - |
+        echo "Waiting for monitoring namespace to be deleted..."
+        while kubectl get namespace monitoring >/dev/null 2>&1; do
+          echo -n "."
+          sleep 2
+        done
+        echo " Done!"
+        echo "Waiting additional 10s for cleanup to complete..."
+        sleep 10
+
+  deploy-monitoring:
+    desc: "Deploy fresh monitoring stack"
+    cmds:
+      - |
+        echo "1. Creating monitoring namespace..."
+        kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+        
+        echo "2. Re-applying monitoring applications..."
+        # Apply kube-prometheus-stack
+        kubectl apply -f k8s/argocd/applications/kube-prometheus-stack.yaml
+        
+        # Apply custom dashboards if exists
+        if [ -f "k8s/argocd/applications/custom-dashboards.yaml" ]; then
+          kubectl apply -f k8s/argocd/applications/custom-dashboards.yaml
+        fi
+        
+        echo "3. Waiting for applications to be created..."
+        sleep 5
+        
+        echo "4. Syncing applications..."
+        argocd app sync kube-prometheus-stack --grpc-web --insecure --server localhost:8081 || \
+          kubectl patch application kube-prometheus-stack -n argocd --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}'
+        
+        # If custom dashboards app exists, sync it too
+        kubectl get application custom-dashboards -n argocd >/dev/null 2>&1 && \
+          (argocd app sync custom-dashboards --grpc-web --insecure --server localhost:8081 || \
+           kubectl patch application custom-dashboards -n argocd --type merge -p '{"operation":{"sync":{"revision":"HEAD"}}}')
+
+  verify-monitoring:
+    desc: "Verify monitoring stack is working"
+    cmds:
+      - |
+        echo "Waiting for Prometheus pods..."
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=prometheus -n monitoring --timeout=300s || true
+        
+        echo "Waiting for Grafana pods..."
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=grafana -n monitoring --timeout=300s || true
+        
+        echo ""
+        echo "=== Monitoring Stack Status ==="
+        kubectl get pods -n monitoring
+        echo ""
+        kubectl get applications -n argocd | grep -E "prometheus|dashboard"
+        echo ""
+        echo "=== Grafana Dashboards Check ==="
+        task: check-dashboards
+
+  check-dashboards:
+    desc: "Check if Grafana dashboards are loaded"
+    cmds:
+      - |
+        # Port forward to Grafana
+        kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80 >/dev/null 2>&1 &
+        PF_PID=$!
+        sleep 5
+        
+        # Check dashboards via API
+        echo "Dashboards in Grafana:"
+        curl -s -u admin:admin http://localhost:3000/api/search?type=dash-db 2>/dev/null | \
+          jq -r '.[] | "\(.title) (Folder: \(.folderTitle))"' || echo "Could not fetch dashboards"
+        
+        # Check if custom dashboards are present
+        echo ""
+        echo "Checking for custom dashboards:"
+        curl -s -u admin:admin http://localhost:3000/api/search?type=dash-db 2>/dev/null | \
+          jq -r '.[] | select(.title | contains("Router") or contains("NGINX") or contains("Golden")) | .title' || echo "No custom dashboards found"
+        
+        # Kill port forward
+        kill $PF_PID 2>/dev/null || true
+
+  quick-test-monitoring:
+    desc: "Quick test of monitoring without full redeploy"
+    cmds:
+      - |
+        echo "=== Quick Monitoring Test ==="
+        # Just restart Grafana to reload dashboards
+        kubectl rollout restart deployment -n monitoring -l app.kubernetes.io/name=grafana
+        
+        echo "Waiting for Grafana restart..."
+        sleep 10
+        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=grafana -n monitoring --timeout=120s
+        
+        # Check dashboards
+        task: check-dashboards
+
+  monitoring-logs:
+    desc: "Show monitoring component logs"
+    cmds:
+      - |
+        echo "=== Grafana Logs ==="
+        kubectl logs -n monitoring -l app.kubernetes.io/name=grafana --tail=20
+        echo ""
+        echo "=== Grafana Sidecar Logs ==="
+        kubectl logs -n monitoring -l app.kubernetes.io/name=grafana -c grafana-sc-dashboard --tail=20 || echo "No sidecar logs"
+
+  fix-monitoring-sync:
+    desc: "Fix monitoring sync issues"
+    cmds:
+      - |
+        echo "Refreshing monitoring applications..."
+        argocd app get kube-prometheus-stack --refresh --grpc-web --insecure --server localhost:8081 || true
+        argocd app get custom-dashboards --refresh --grpc-web --insecure --server localhost:8081 || true
+        
+        echo "Hard refresh - deleting and recreating apps..."
+        task: redeploy-monitoring

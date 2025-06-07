@@ -6,100 +6,124 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   annotations:
-    argocd.argoproj.io/sync-wave: "3"
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   project: default
-  sources:
-    - repoURL: https://prometheus-community.github.io/helm-charts
-      chart: kube-prometheus-stack
-      targetRevision: 73.2.0
-      helm:
-        values: |
-          # Minimal configuration for Kind
-          defaultRules:
-            create: true
-            rules:
-              alertmanager: false
-              etcd: false
-              kubeScheduler: false
-          
-          prometheus:
-            prometheusSpec:
-              retention: 24h
-              resources:
-                requests:
-                  cpu: 200m
-                  memory: 200Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
-              serviceMonitorSelectorNilUsesHelmValues: false
-              serviceMonitorSelector: {}
-              serviceMonitorNamespaceSelector: {}
-          
-          grafana:
-            enabled: true
-            adminPassword: admin
-            service:
-              type: NodePort
-              nodePort: 30300
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 73.2.0
+    helm:
+      values: |
+        defaultRules:
+          create: true
+          rules:
+            alertmanager: false
+            etcd: false
+            kubeScheduler: false
+        
+        prometheus:
+          prometheusSpec:
+            retention: 24h
             resources:
               requests:
-                cpu: 100m
-                memory: 128Mi
-            # Enable sidecar for dashboards
-            sidecar:
-              dashboards:
-                enabled: true
-                label: grafana_dashboard
-                labelValue: "1"
-                searchNamespace: ALL
-                folderAnnotation: grafana_folder
-                provider:
-                  allowUiUpdates: true
-            # Import community dashboards
-            dashboardProviders:
-              dashboardproviders.yaml:
-                apiVersion: 1
-                providers:
-                - name: 'default'
-                  orgId: 1
-                  folder: ''
-                  type: file
-                  disableDeletion: false
-                  updateIntervalSeconds: 10
-                  allowUiUpdates: true
-                  options:
-                    path: /var/lib/grafana/dashboards/default
+                cpu: 200m
+                memory: 200Mi
+            serviceMonitorSelectorNilUsesHelmValues: false
+            serviceMonitorSelector: {}
+            serviceMonitorNamespaceSelector: {}
+        
+        grafana:
+          enabled: true
+          adminPassword: admin
+          service:
+            type: NodePort
+            nodePort: 30300
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          
+          extraContainerVolumes:
+            - name: sc-dashboard-volume
+              mountPath: /tmp/dashboards
+          
+          # Sidecar configuration
+          sidecar:
             dashboards:
-              default:
-                nginx-exporter:
-                  gnetId: 12708
-                  revision: 1
-                  datasource: Prometheus
-                kubernetes-cluster:
-                  gnetId: 7249
-                  revision: 1
-                  datasource: Prometheus
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: ALL
+              folder: /tmp/dashboards
+              folderAnnotation: grafana_folder
+              defaultFolderName: "General"
+              # Disable reload URL to prevent errors
+              resource: both
+              reloadURL: ""
+              env: {}
           
-          # Disable components not needed
-          kubeEtcd:
-            enabled: false
-          kubeControllerManager:
-            enabled: false
-          kubeScheduler:
-            enabled: false
+          # Dashboard providers
+          dashboardProviders:
+            dashboardproviders.yaml:
+              apiVersion: 1
+              providers:
+              # Provider for community dashboards
+              - name: 'default'
+                orgId: 1
+                folder: 'Default'
+                type: file
+                disableDeletion: false
+                updateIntervalSeconds: 10
+                allowUiUpdates: true
+                options:
+                  path: /var/lib/grafana/dashboards/default
+              - name: 'sidecar'
+                orgId: 1
+                folder: 'Custom'
+                type: file
+                disableDeletion: false
+                updateIntervalSeconds: 10
+                allowUiUpdates: true
+                options:
+                  path: /tmp/dashboards
           
-          alertmanager:
-            alertmanagerSpec:
-              resources:
-                requests:
-                  cpu: 50m
-                  memory: 50Mi
-    
-    - repoURL: https://github.com/keepkipod/router.git
-      targetRevision: HEAD
-      path: k8s/monitoring
+          # Community dashboards
+          dashboards:
+            default:
+              nginx-exporter:
+                gnetId: 12708
+                revision: 1
+                datasource: Prometheus
+              kubernetes-cluster:
+                gnetId: 7249
+                revision: 1
+                datasource: Prometheus
+          
+          # Additional volume mounts for main container
+          extraVolumeMounts:
+            - name: sc-dashboard-volume
+              mountPath: /tmp/dashboards
+              readOnly: true
+          
+          # Shared volume between sidecar and main container
+          extraVolumes:
+            - name: sc-dashboard-volume
+              emptyDir: {}
+        
+        kubeEtcd:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests:
+                cpu: 50m
+                memory: 50Mi
   
   destination:
     server: https://kubernetes.default.svc
@@ -108,13 +132,34 @@ spec:
     automated:
       prune: true
       selfHeal: true
-    retry:
-      limit: 3
-      backoff:
-        duration: 5s
-        factor: 2
-        maxDuration: 1m
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
       - SkipDryRunOnMissingResource=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: custom-dashboards
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/keepkipod/router.git
+    targetRevision: HEAD
+    path: k8s/monitoring
+    directory:
+      include: 'grafana-*.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

@@ -5,7 +5,6 @@ metadata:
   labels:
     {{- include "nginx-cell.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "4"
     {{- with .Values.service.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
