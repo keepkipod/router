@@ -161,7 +161,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))",
+              "expr": "sum by (pod) (rate(nginx_http_requests_total{job=~\".*-nginx-cell\"}[5m]))",
               "legendFormat": "{{ pod }}",
               "range": true,
               "refId": "A"
@@ -230,7 +230,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))",
+              "expr": "sum(rate(nginx_http_requests_total{job=~\".*-nginx-cell\"}[5m]))",
               "legendFormat": "Total",
               "range": true,
               "refId": "A"
@@ -379,7 +379,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "(sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\",status=~\"5..\"}[5m])) / sum by (pod) (rate(nginx_http_requests_total{job=\"nginx-exporter\"}[5m]))) * 100 or on(pod) (sum by (pod) (up{job=\"nginx-exporter\"}) * 0)",
+              "expr": "(sum by (pod) (rate(nginx_http_requests_total{job=~\".*-nginx-cell\",status=~\"5..\"}[5m])) / sum by (pod) (rate(nginx_http_requests_total{job=~\".*-nginx-cell\"}[5m]))) * 100 or on(pod) (sum by (pod) (up{job=~\".*-nginx-cell\"}) * 0)",
               "legendFormat": "{{ pod }}",
               "range": true,
               "refId": "A"
@@ -717,7 +717,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "nginx_connections_active{job=\"nginx-exporter\"}",
+              "expr": "nginx_connections_active{job=~\".*-nginx-cell\"}",
               "legendFormat": "{{ pod }}",
               "range": true,
               "refId": "A"
@@ -786,7 +786,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "sum(nginx_connections_active{job=\"nginx-exporter\"})",
+              "expr": "sum(nginx_connections_active{job=~\".*-nginx-cell\"})",
               "legendFormat": "Total Active",
               "range": true,
               "refId": "A"
@@ -838,7 +838,7 @@ data:
                 "uid": "${DS_PROMETHEUS}"
               },
               "editorMode": "code",
-              "expr": "up{job=\"nginx-exporter\"}",
+              "expr": "up{job=~\".*-nginx-cell\"}",
               "format": "table",
               "instant": true,
               "refId": "A"
