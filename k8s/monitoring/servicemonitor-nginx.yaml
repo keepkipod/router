@@ -1,15 +1,18 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: nginx-monitor
+  name: nginx-cells
   namespace: monitoring
   labels:
     app: nginx
     prometheus: kube-prometheus
 spec:
+  # This selector will match ALL services that have app=nginx-1, nginx-2, or nginx-3
   selector:
-    matchLabels:
-      app: nginx-1
+    matchExpressions:
+    - key: app.kubernetes.io/instance
+      operator: In
+      values: ["nginx-1", "nginx-2", "nginx-3"]
   namespaceSelector:
     matchNames:
     - nginx
@@ -17,43 +20,13 @@ spec:
   - port: metrics
     path: /metrics
     interval: 30s
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: nginx-2-monitor
-  namespace: monitoring
-  labels:
-    app: nginx
-    prometheus: kube-prometheus
-spec:
-  selector:
-    matchLabels:
-      app: nginx-2
-  namespaceSelector:
-    matchNames:
-    - nginx
-  endpoints:
-  - port: metrics
-    path: /metrics
-    interval: 30s
----
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: nginx-3-monitor
-  namespace: monitoring
-  labels:
-    app: nginx
-    prometheus: kube-prometheus
-spec:
-  selector:
-    matchLabels:
-      app: nginx-3
-  namespaceSelector:
-    matchNames:
-    - nginx
-  endpoints:
-  - port: metrics
-    path: /metrics
-    interval: 30s
+    # These relabelings will extract the cell number from the service name
+    relabelings:
+    # Extract cell number from the instance label
+    - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_instance]
+      regex: nginx-(\d+)
+      targetLabel: cell
+      replacement: $1
+    # Keep the original instance name as the job
+    - sourceLabels: [__meta_kubernetes_service_label_app_kubernetes_io_instance]
+      targetLabel: job
