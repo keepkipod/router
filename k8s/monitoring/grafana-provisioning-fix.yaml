@@ -1,0 +1,20 @@
+# This ConfigMap tells Grafana where to find dashboards
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-provisioning
+  namespace: monitoring
+data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'sidecar'
+      orgId: 1
+      folder: 'Custom'
+      type: file
+      disableDeletion: false
+      updateIntervalSeconds: 10
+      allowUiUpdates: true
+      options:
+        path: /tmp/dashboards
+        foldersFromFilesStructure: true

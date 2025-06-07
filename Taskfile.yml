@@ -127,10 +127,9 @@ tasks:
     cmds:
       - kind delete cluster --name {{.CLUSTER_NAME}}
 
-  # New deployment flow with ArgoCD
   deploy-all-argocd:
     cmds:
-      # - task: deploy-cluster
+      - task: deploy-cluster
       - task: wait-for-cluster
       - cmd: kind load docker-image {{.APP_NAME}}:latest --name {{.CLUSTER_NAME}}
       - task: install-argocd-cli
