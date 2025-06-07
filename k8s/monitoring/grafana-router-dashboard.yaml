@@ -83,7 +83,38 @@ data:
               },
               "unit": "reqps"
             },
-            "overrides": []
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "No Cell ID"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "dark-purple"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Invalid Cell ID"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "dark-red"
+                    }
+                  }
+                ]
+              }
+            ]
           },
           "gridPos": {
             "h": 8,
@@ -94,8 +125,8 @@ data:
           "id": 1,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
+              "calcs": ["last", "mean"],
+              "displayMode": "table",
               "placement": "bottom",
               "showLegend": true
             },
@@ -115,6 +146,28 @@ data:
               "legendFormat": "Cell {{cell_id}}",
               "range": true,
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(router_requests_total{cell_id=\"\"}[5m]))",
+              "legendFormat": "No Cell ID",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(router_requests_total{cell_id=\"unknown\"}[5m]))",
+              "legendFormat": "Invalid Cell ID",
+              "range": true,
+              "refId": "C"
             }
           ],
           "title": "🚦 Traffic - Request Rate by Cell",
@@ -208,10 +261,190 @@ data:
               "legendFormat": "Cell {{cell_id}}",
               "range": true,
               "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "(sum(rate(router_requests_total{status=~\"5..\",cell_id=\"\"}[5m])) / sum(rate(router_requests_total{cell_id=\"\"}[5m]))) * 100",
+              "legendFormat": "No Cell ID",
+              "range": true,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "(sum(rate(router_requests_total{status=~\"5..\",cell_id=\"unknown\"}[5m])) / sum(rate(router_requests_total{cell_id=\"unknown\"}[5m]))) * 100",
+              "legendFormat": "Invalid Cell ID",
+              "range": true,
+              "refId": "C"
             }
           ],
           "title": "❌ Errors - Error Rate (%)",
           "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto",
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Total Requests"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "short"
+                  },
+                  {
+                    "id": "custom.displayMode",
+                    "value": "gradient-gauge"
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Request Rate"
+                },
+                "properties": [
+                  {
+                    "id": "unit",
+                    "value": "reqps"
+                  },
+                  {
+                    "id": "decimals",
+                    "value": 2
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 8
+          },
+          "id": 8,
+          "options": {
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": true,
+                "displayName": "Total Requests"
+              }
+            ]
+          },
+          "pluginVersion": "10.0.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(increase(router_requests_total[5m])) by (cell_id)",
+              "format": "table",
+              "instant": true,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${DS_PROMETHEUS}"
+              },
+              "editorMode": "code",
+              "expr": "sum(rate(router_requests_total[5m])) by (cell_id)",
+              "format": "table",
+              "instant": true,
+              "hide": false,
+              "legendFormat": "__auto",
+              "range": false,
+              "refId": "B"
+            }
+          ],
+          "title": "📊 Request Distribution Summary",
+          "transformations": [
+            {
+              "id": "merge",
+              "options": {}
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time": true,
+                  "Time 1": true,
+                  "Time 2": true
+                },
+                "indexByName": {},
+                "renameByName": {
+                  "cell_id": "Cell ID",
+                  "Value #A": "Total Requests (5m)",
+                  "Value #B": "Request Rate"
+                }
+              }
+            },
+            {
+              "id": "calculateField",
+              "options": {
+                "mode": "string",
+                "reduce": {
+                  "reducer": "allValues"
+                },
+                "replaceFields": false,
+                "alias": "Description",
+                "binary": {
+                  "left": "Cell ID",
+                  "operator": "+",
+                  "right": ""
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "Description": "Type"
+                }
+              }
+            }
+          ],
+          "type": "table"
         },
         {
           "datasource": {
@@ -270,7 +503,7 @@ data:
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 0,
+            "x": 12,
             "y": 8
           },
           "id": 3,
@@ -343,8 +576,8 @@ data:
           "gridPos": {
             "h": 8,
             "w": 6,
-            "x": 12,
-            "y": 8
+            "x": 0,
+            "y": 16
           },
           "id": 4,
           "options": {
@@ -406,8 +639,8 @@ data:
           "gridPos": {
             "h": 8,
             "w": 6,
-            "x": 18,
-            "y": 8
+            "x": 6,
+            "y": 16
           },
           "id": 5,
           "options": {
@@ -491,7 +724,7 @@ data:
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 0,
+            "x": 12,
             "y": 16
           },
           "id": 6,
@@ -576,8 +809,8 @@ data:
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 12,
-            "y": 16
+            "x": 0,
+            "y": 24
           },
           "id": 7,
           "options": {
@@ -608,7 +841,7 @@ data:
       "refresh": "5s",
       "schemaVersion": 38,
       "style": "dark",
-      "tags": ["router", "golden-signals", "custom"],
+      "tags": ["router", "golden-signals", "complete"],
       "templating": {
         "list": [
           {

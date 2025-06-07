@@ -16,24 +16,38 @@ async def track_requests_middleware(request: Request, call_next):
     if request.url.path == "/metrics":
         return await call_next(request)
 
-    # Initialize client_id
+    # Initialize default values
     request.state.client_id = "unknown"
+    request.state.cell_id = ""  # Empty string for "no cell ID"
 
     response = await call_next(request)
 
-    # Track metrics for API calls
-    if request.url.path.startswith("/api/"):
-        duration = time.time() - start_time
-        cell_id = getattr(request.state, "cell_id", "unknown")
-        client_id = getattr(request.state, "client_id", "unknown")
+    # Track metrics for all requests (not just API calls)
+    duration = time.time() - start_time
+    
+    # Get cell_id from request state, default to empty string if not set
+    cell_id = getattr(request.state, "cell_id", "")
+    
+    # Handle different cases of cell_id
+    if cell_id == "":
+        # This is for health checks, root endpoint, etc.
+        metric_cell_id = ""  # Will show as "No Cell ID" in dashboard
+    elif cell_id not in ["1", "2", "3"]:
+        # Invalid cell IDs
+        metric_cell_id = "unknown"  # Will show as "Invalid Cell ID" in dashboard
+    else:
+        # Valid cell IDs
+        metric_cell_id = cell_id
+    
+    client_id = getattr(request.state, "client_id", "unknown")
 
-        request_duration.labels(cell_id=cell_id, method=request.method).observe(duration)
-        request_count.labels(
-            cell_id=cell_id,
-            status=response.status_code,
-            method=request.method,
-            client=client_id
-        ).inc()
+    request_duration.labels(cell_id=metric_cell_id, method=request.method).observe(duration)
+    request_count.labels(
+        cell_id=metric_cell_id,
+        status=response.status_code,
+        method=request.method,
+        client=client_id
+    ).inc()
 
     # Add security headers
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -43,7 +57,7 @@ async def track_requests_middleware(request: Request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
 
-    # Remove server header - use del instead of pop
+    # Remove server header
     if "server" in response.headers:
         del response.headers["server"]
 
