@@ -1,0 +1,277 @@
+name: CI
+
+on:
+  push:
+    branches-ignore:
+      - main  # Prevent direct pushes to main
+    paths:
+      - 'router/**'
+      - 'k8s/**'
+      - '.github/workflows/ci.yaml'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'router/**'
+      - 'k8s/**'
+      - '.github/workflows/ci.yaml'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  PYTHON_VERSION: '3.13'
+
+jobs:
+  version:
+    name: Calculate Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_tag: ${{ steps.version.outputs.version_tag }}
+      major: ${{ steps.version.outputs.major }}
+      minor: ${{ steps.version.outputs.minor }}
+      patch: ${{ steps.version.outputs.patch }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for version calculation
+
+      - name: Calculate semantic version
+        id: version
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          # The prefix to use to identify tags
+          tag_prefix: "v"
+          # A string which, if present in a git commit, indicates that a change represents a
+          # major (breaking) change, supports regular expressions wrapped with '/'
+          major_pattern: "(MAJOR)"
+          # Same as above except indicating a minor change, supports regular expressions wrapped with '/'
+          minor_pattern: "(MINOR)"
+          # A string to determine the format of the version output
+          version_format: "${major}.${minor}.${patch}"
+          # Optional path to check for changes. If any changes are detected in the path the
+          # 'changed' output will true. Enter multiple paths separated by spaces.
+          change_path: "router k8s"
+          # If this is set to true, *every* commit will be treated as a new version.
+          bump_each_commit: true
+          # If true, the body of commits will also be searched for major/minor patterns to determine the version type.
+          search_commit_body: false
+
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    needs: version
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('router/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          cd router
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run linting
+        run: |
+          cd router
+          # Run black formatter check
+          black --check --diff src/
+          
+          # Run flake8 linter
+          flake8 src/ --count --statistics
+          
+          # Run mypy type checker
+          mypy src/ --ignore-missing-imports
+
+      - name: Run tests
+        run: |
+          cd router
+          PYTHONPATH=src pytest tests/ -v
+          
+          # TODO: With more time, would implement:
+          # - Code coverage with pytest-cov and Codecov integration
+          # - Integration tests with real NGINX containers
+          # - Performance tests with locust or similar
+
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write  # For PR comments
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        # Only login for branch pushes, not PRs
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Primary version tags
+            type=raw,value=${{ needs.version.outputs.version }} # → 1.2.3
+            type=raw,value=${{ needs.version.outputs.version_tag }} # → v1.2.3
+            # For PRs: pr-<number>-<version>
+            type=raw,value=pr-${{ github.event.number }}-${{ needs.version.outputs.version }},enable=${{ github.event_name == 'pull_request' }}
+            # Keep branch name for convenience
+            type=ref,event=branch # → feature-auth
+            # SHA for debugging
+            type=sha,prefix={{branch}}-  # → feature-auth-abc1234
+
+      - name: Build and push Docker image
+        id: docker-build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./router
+          # Push only for branch pushes, not for PRs
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Add PR comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `### 🐳 Docker Build Successful
+            
+            **Version:** \`${{ needs.version.outputs.version }}\`
+            **Preview Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}-${{ needs.version.outputs.version }}\`
+            
+            This image was built but **not pushed** to the registry.
+            Once this PR is merged, the image will be built and tagged from the release workflow.
+            
+            <details>
+            <summary>Build Details</summary>
+            
+            - **Semantic Version:** ${{ needs.version.outputs.version_tag }}
+            - **Commit:** ${{ github.sha }}
+            - **Builder:** @${{ github.actor }}
+            - **Workflow:** [Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            
+            </details>`;
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Docker Build Successful')
+            );
+            
+            // Update or create comment
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: output
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: output
+              });
+            }
+
+      - name: Development build summary
+        if: github.event_name == 'push'
+        run: |
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "## 🚀 Development Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${BRANCH_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** \`${{ needs.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Images:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.version_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test this image:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "docker run --rm -p 8000:8000 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Version Details:" >> $GITHUB_STEP_SUMMARY
+          echo "- Major: ${{ needs.version.outputs.major }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Minor: ${{ needs.version.outputs.minor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Patch: ${{ needs.version.outputs.patch }}" >> $GITHUB_STEP_SUMMARY
+
+  helm-lint:
+    name: Lint Helm Charts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.13.3'
+
+      - name: Lint Helm charts
+        run: |
+          helm lint k8s/router --strict
+          helm lint k8s/nginx-helm --strict
+          
+          # TODO: With more time, would implement:
+          # - Helm chart testing with ct (chart-testing)
+          # - Helm unittest plugin
+          # - Deploy to ephemeral Kind cluster for smoke tests
+
+  # TODO: Additional jobs that would be implemented with more time:
+  # 
+  # security-scan:
+  #   - Container vulnerability scanning with Trivy
+  #   - Dependency scanning with Dependabot
+  #   - Secret scanning
+  #
+  # integration-test:
+  #   - Spin up Kind cluster
+  #   - Deploy full stack with ArgoCD
+  #   - Run end-to-end tests
+  #   - Load testing with k6 or locust
+  #
+  # notify:
+  #   - Slack/Teams notifications on failure
+  #   - PR comment with build details
+  #   - Update deployment tracking system
