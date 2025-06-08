@@ -16,7 +16,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-      pages: write
       id-token: write
 
     steps:
@@ -42,6 +41,8 @@ jobs:
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "MAJOR=$(echo $VERSION | cut -d. -f1)" >> $GITHUB_OUTPUT
         echo "MINOR=$(echo $VERSION | cut -d. -f1,2)" >> $GITHUB_OUTPUT
+        CHART_NAME=$(basename ${{ env.HELM_CHART_PATH }})
+        echo "CHART_NAME=$CHART_NAME" >> $GITHUB_OUTPUT
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v6
@@ -71,79 +72,98 @@ jobs:
       with:
         version: 'v3.13.3'
 
-    - name: Lint Helm
+    - name: Lint Helm chart
       run: |
         helm lint ${{ env.HELM_CHART_PATH }}
 
-    - name: Download dependencies
-      run: helm dependency update ${{ env.HELM_CHART_PATH }}
+    - name: Update Helm dependencies
+      run: |
+        if [ -f "${{ env.HELM_CHART_PATH }}/Chart.yaml" ] && grep -q "dependencies:" "${{ env.HELM_CHART_PATH }}/Chart.yaml"; then
+          helm dependency update ${{ env.HELM_CHART_PATH }}
+        fi
 
     - name: Package Helm chart
       run: |
+        mkdir -p .deploy || true
         helm package ${{ env.HELM_CHART_PATH }} -d .deploy
+        cd .deploy
+        # Generate checksums
+        sha256sum *.tgz > checksums.txt
+
+    - name: Push Helm chart to GitHub Container Registry
+      run: |
+        cd .deploy
+        # Push chart to OCI registry
+        helm push *.tgz oci://ghcr.io/${{ github.repository_owner }}
 
     - name: Create GitHub Release
-      id: create_release
-      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ steps.version.outputs.VERSION }}
-        draft: false
-        prerelease: false
-        body: |
-          ## Changes in this Release
-          
-          ### Docker Image
-          - Image: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}`
-          
-          ### Helm Chart
-          - Chart Version: `${{ steps.version.outputs.VERSION }}`
-          - App Version: `${{ steps.version.outputs.VERSION }}`
-          
-          ### Installation
-          ```bash
-          helm repo add router https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-          helm repo update
-          helm install router router/router --version ${{ steps.version.outputs.VERSION }}
-          ```
-
-    - name: Upload Helm chart to release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: .deploy/router-${{ steps.version.outputs.VERSION }}.tgz
-        asset_name: router-${{ steps.version.outputs.VERSION }}.tgz
-        asset_content_type: application/gzip
-
-    - name: Checkout gh-pages branch
-      uses: actions/checkout@v4
-      with:
-        ref: gh-pages
-        path: gh-pages
-
-    - name: Update Helm repository index
       run: |
-        cp .deploy/*.tgz gh-pages/
-        cd gh-pages
-        helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-        git config user.name "${{ github.actor }}"
-        git config user.email "${{ github.actor }}@users.noreply.github.com"
-        git add .
-        git commit -m "Update Helm repository with version ${{ steps.version.outputs.VERSION }}"
-        git push
+        cd .deploy
+        
+        # Generate release notes
+        RELEASE_NOTES=$(cat << EOF
+        ## 🚀 Release ${{ steps.version.outputs.VERSION }}
+        
+        ### 🐳 Docker Image
+        - Registry: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`
+        - Tags: \`${{ steps.version.outputs.VERSION }}\`, \`${{ steps.version.outputs.MINOR }}\`, \`${{ steps.version.outputs.MAJOR }}\`, \`latest\`
+        
+        ### ⚓ Helm Chart
+        - Chart: \`${{ steps.version.outputs.CHART_NAME }}\`
+        - Version: \`${{ steps.version.outputs.VERSION }}\`
+        - App Version: \`${{ steps.version.outputs.VERSION }}\`
+        
+        ### 📦 Installation
+        
+        \`\`\`bash
+        # Install directly from OCI registry
+        helm install ${{ steps.version.outputs.CHART_NAME }} \\
+          oci://ghcr.io/${{ github.repository_owner }}/${{ steps.version.outputs.CHART_NAME }} \\
+          --version ${{ steps.version.outputs.VERSION }}
+        
+        # Or pull first and inspect
+        helm pull oci://ghcr.io/${{ github.repository_owner }}/${{ steps.version.outputs.CHART_NAME }} \\
+          --version ${{ steps.version.outputs.VERSION }}
+        \`\`\`
+        
+        ### 📋 Checksums
+        \`\`\`
+        $(cat checksums.txt)
+        \`\`\`
+        EOF
+        )
+        
+        # Create release with gh CLI
+        gh release create \
+          "${{ github.ref_name }}" \
+          --repo "${{ github.repository }}" \
+          --title "${{ steps.version.outputs.CHART_NAME }} ${{ steps.version.outputs.VERSION }}" \
+          --notes "$RELEASE_NOTES" \
+          --verify-tag \
+          *.tgz checksums.txt
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-artifacts-${{ steps.version.outputs.VERSION }}
+        path: |
+          .deploy/*.tgz
+          .deploy/checksums.txt
+        retention-days: 90
 
   update-argocd-apps:
     needs: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
+        ref: main
 
     - name: Extract version
       id: version
@@ -153,12 +173,45 @@ jobs:
 
     - name: Update ArgoCD applications
       run: |
-        # Update router application to use new chart version
-        sed -i "s/targetRevision: .*/targetRevision: ${{ steps.version.outputs.VERSION }}/" k8s/argocd/applications/router.yaml
+        # Update to use OCI registry
+        cat > k8s/argocd/applications/router.yaml << EOF
+        apiVersion: argoproj.io/v1alpha1
+        kind: Application
+        metadata:
+          name: router
+          namespace: argocd
+          finalizers:
+            - resources-finalizer.argocd.argoproj.io
+          annotations:
+            argocd.argoproj.io/sync-wave: "4"
+        spec:
+          project: default
+          source:
+            # Using OCI registry
+            chart: router
+            repoURL: ghcr.io/${{ github.repository_owner }}
+            targetRevision: ${{ steps.version.outputs.VERSION }}
+            helm:
+              values: |
+                replicaCount: 3
+                autoscaling:
+                  enabled: true
+                  minReplicas: 3
+                  maxReplicas: 10
+          destination:
+            server: https://kubernetes.default.svc
+            namespace: router
+          syncPolicy:
+            automated:
+              prune: true
+              selfHeal: true
+            syncOptions:
+              - CreateNamespace=true
+        EOF
         
-        # Commit changes
+        # Commit and push changes
         git config user.name "${{ github.actor }}"
         git config user.email "${{ github.actor }}@users.noreply.github.com"
         git add k8s/argocd/applications/router.yaml
-        git commit -m "chore: update ArgoCD to use router v${{ steps.version.outputs.VERSION }}"
-        git push origin HEAD:main
+        git commit -m "chore: update ArgoCD to use router v${{ steps.version.outputs.VERSION }} [skip ci]"
+        git push origin main
