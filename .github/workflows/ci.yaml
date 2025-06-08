@@ -33,7 +33,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Required for version calculation
 
       - name: Get latest tag
         id: latest_tag
@@ -132,7 +132,7 @@ jobs:
   build:
     name: Build Docker Image
     runs-on: ubuntu-latest
-    needs: lint-and-test
+    needs: [version, lint-and-test]
     permissions:
       contents: read
       packages: write
