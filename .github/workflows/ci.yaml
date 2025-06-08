@@ -33,7 +33,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for version calculation
+          fetch-depth: 0
 
       - name: Get latest tag
         id: latest_tag
@@ -124,10 +124,10 @@ jobs:
     #       cd router
     #       PYTHONPATH=src pytest tests/ -v
           
-    #       # TODO: With more time, would implement:
-    #       # - Code coverage with pytest-cov and Codecov integration
-    #       # - Integration tests with real NGINX containers
-    #       # - Performance tests with locust or similar
+          # TODO: With more time, would implement:
+          # - Code coverage with pytest-cov and Codecov integration
+          # - Integration tests with real NGINX containers
+          # - Performance tests with locust or similar
 
   build:
     name: Build Docker Image
@@ -159,12 +159,17 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # For PRs: pr-<number>
-            type=ref,event=pr
-            # For branches: branch-<name>-<sha>
-            type=ref,event=branch,suffix=-{{sha}}
-            # For any branch push: also add clean branch name
-            type=ref,event=branch
+            # Highest priority: semantic version tags (only when version exists)
+            type=raw,priority=1000,value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.version != '' }}
+            type=raw,priority=999,value=v${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.version != '' }}
+            # For main branch: also tag as latest
+            type=raw,priority=900,value=latest,enable=${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+            # Lower priority: branch name
+            type=ref,priority=300,event=branch
+            # Lowest priority: SHA (for debugging)
+            type=sha,priority=200
+            # For PRs: pr-number (when not pushing)
+            type=ref,priority=100,event=pr
 
       - name: Build and push Docker image
         id: docker-build
@@ -232,24 +237,30 @@ jobs:
         if: github.event_name == 'push'
         run: |
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          PRIMARY_TAG="${{ needs.version.outputs.version }}"
+          
           echo "## 🚀 Development Build Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Branch:** \`${BRANCH_NAME}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** \`${{ needs.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Images:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Primary Image:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${PRIMARY_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### All Available Tags:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.version }}\` (recommended)" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.version_tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          if [[ "${BRANCH_NAME}" == "main" ]]; then
+            echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${BRANCH_NAME}\` (branch reference)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Test this image:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "docker run --rm -p 8000:8000 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "docker run --rm -p 8000:8000 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${PRIMARY_TAG}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Version Details:" >> $GITHUB_STEP_SUMMARY
-          echo "- Major: ${{ needs.version.outputs.major }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Minor: ${{ needs.version.outputs.minor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Patch: ${{ needs.version.outputs.patch }}" >> $GITHUB_STEP_SUMMARY
 
   # TODO: Additional jobs that would be implemented with more time:
   # 
