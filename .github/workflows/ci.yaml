@@ -29,14 +29,19 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       version_tag: ${{ steps.version.outputs.version_tag }}
-      major: ${{ steps.version.outputs.major }}
-      minor: ${{ steps.version.outputs.minor }}
-      patch: ${{ steps.version.outputs.patch }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Required for version calculation
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          # Get the latest tag, or use 0.0.0 if no tags exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
 
       - name: Calculate semantic version
         id: version
@@ -44,13 +49,35 @@ jobs:
         with:
           # The prefix to use to identify tags
           tag_prefix: "v"
+          # A string which, if present in a git commit, indicates that a change represents a
+          # major (breaking) change
+          major_pattern: "(MAJOR)"
+          # Same as above except indicating a minor change
+          minor_pattern: "(MINOR)"
           # A string to determine the format of the version output
           version_format: "${major}.${minor}.${patch}"
-          # Optional path to check for changes. If any changes are detected in the path the
-          # 'changed' output will true. Enter multiple paths separated by spaces.
-          change_path: "router k8s"
           # If this is set to true, *every* commit will be treated as a new version.
           bump_each_commit: true
+          # If true, the body of commits will also be searched for major/minor patterns to determine the version type.
+          search_commit_body: false
+      
+      - name: Ensure version exists
+        id: final_version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION_TAG="${{ steps.version.outputs.version_tag }}"
+          
+          # If version is empty, create one based on current date and run number
+          if [ -z "$VERSION" ]; then
+            echo "No version from semantic-version, creating one..."
+            VERSION="0.1.${{ github.run_number }}"
+            VERSION_TAG="v$VERSION"
+          fi
+          
+          echo "Final version: $VERSION"
+          echo "Final version tag: $VERSION_TAG"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_tag=$VERSION_TAG" >> $GITHUB_OUTPUT
 
   lint-and-test:
     name: Lint and Test
@@ -132,15 +159,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Primary version tags
-            type=raw,value=${{ needs.version.outputs.version }} # → 1.2.3
-            type=raw,value=${{ needs.version.outputs.version_tag }} # → v1.2.3
-            # For PRs: pr-<number>-<version>
-            type=raw,value=pr-${{ github.event.number }}-${{ needs.version.outputs.version }},enable=${{ github.event_name == 'pull_request' }}
-            # Keep branch name for convenience
-            type=ref,event=branch # → feature-auth
-            # SHA for debugging
-            type=sha,prefix={{branch}}-  # → feature-auth-abc1234
+            # For PRs: pr-<number>
+            type=ref,event=pr
+            # For branches: branch-<name>-<sha>
+            type=ref,event=branch,suffix=-{{sha}}
+            # For any branch push: also add clean branch name
+            type=ref,event=branch
 
       - name: Build and push Docker image
         id: docker-build
@@ -162,15 +186,13 @@ jobs:
             const output = `### 🐳 Docker Build Successful
             
             **Version:** \`${{ needs.version.outputs.version }}\`
-            **Preview Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}-${{ needs.version.outputs.version }}\`
             
-            This image was built but **not pushed** to the registry.
-            Once this PR is merged, the image will be built and tagged from the release workflow.
+            This PR build completed successfully but images were **not pushed** to the registry.
+            When merged, this will be released as version \`${{ needs.version.outputs.version }}\`.
             
             <details>
             <summary>Build Details</summary>
             
-            - **Semantic Version:** ${{ needs.version.outputs.version_tag }}
             - **Commit:** ${{ github.sha }}
             - **Builder:** @${{ github.actor }}
             - **Workflow:** [Run #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
