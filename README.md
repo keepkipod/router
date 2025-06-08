@@ -16,15 +16,15 @@ A production-grade Kubernetes system simulating a multi-cell architecture with i
 
 (tested on Macbook Pro with M3 + Colima + KinD)
 
+CLI tools required to be installed:
+[KinD](https://kind.sigs.k8s.io/), [Kubectl](https://kubernetes.io/docs/reference/kubectl/), [ArgoCD](https://argo-cd.readthedocs.io/en/stable/getting_started/#2-download-argo-cd-cli) & [go-task](https://taskfile.dev/)
+
 ```bash
 # Clone the repository
 git clone https://github.com/keepkipod/router.git
 cd router
 
-# Install all required tools (kubectl, helm, kind, task, argocd-cli)
-make install-dependencies
-
-# For macOS with Colima (if not using Docker Desktop)
+# If needed, for macOS with Colima (if not using Docker Desktop)
 colima start --cpu 6 --memory 12 --kubernetes
 ```
 
