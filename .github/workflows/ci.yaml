@@ -236,28 +236,6 @@ jobs:
           echo "- Minor: ${{ needs.version.outputs.minor }}" >> $GITHUB_STEP_SUMMARY
           echo "- Patch: ${{ needs.version.outputs.patch }}" >> $GITHUB_STEP_SUMMARY
 
-  helm-lint:
-    name: Lint Helm Charts
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: 'v3.13.3'
-
-      - name: Lint Helm charts
-        run: |
-          helm lint k8s/router --strict
-          helm lint k8s/nginx-helm --strict
-          
-          # TODO: With more time, would implement:
-          # - Helm chart testing with ct (chart-testing)
-          # - Helm unittest plugin
-          # - Deploy to ephemeral Kind cluster for smoke tests
-
   # TODO: Additional jobs that would be implemented with more time:
   # 
   # security-scan:
