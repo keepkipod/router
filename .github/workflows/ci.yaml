@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
-    branches-ignore:
-      - main  # Prevent direct pushes to main
+    # branches-ignore:
+    #   - main  # Prevent direct pushes to main
     paths:
       - 'router/**'
       - 'k8s/**'
