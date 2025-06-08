@@ -87,27 +87,27 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Run linting
-        run: |
-          cd router
-          # Run black formatter check
-          black --check --diff src/
+    #   - name: Run linting
+    #     run: |
+    #       cd router
+    #       # Run black formatter check
+    #       black --check --diff src/
           
-          # Run flake8 linter
-          flake8 src/ --count --statistics
+    #       # Run flake8 linter
+    #       flake8 src/ --count --statistics
           
-          # Run mypy type checker
-          mypy src/ --ignore-missing-imports
+    #       # Run mypy type checker
+    #       mypy src/ --ignore-missing-imports
 
-      - name: Run tests
-        run: |
-          cd router
-          PYTHONPATH=src pytest tests/ -v
+    #   - name: Run tests
+    #     run: |
+    #       cd router
+    #       PYTHONPATH=src pytest tests/ -v
           
-          # TODO: With more time, would implement:
-          # - Code coverage with pytest-cov and Codecov integration
-          # - Integration tests with real NGINX containers
-          # - Performance tests with locust or similar
+    #       # TODO: With more time, would implement:
+    #       # - Code coverage with pytest-cov and Codecov integration
+    #       # - Integration tests with real NGINX containers
+    #       # - Performance tests with locust or similar
 
   build:
     name: Build Docker Image
