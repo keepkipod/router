@@ -1,0 +1,164 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  HELM_CHART_PATH: ./k8s/router
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pages: write
+      id-token: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "MAJOR=$(echo $VERSION | cut -d. -f1)" >> $GITHUB_OUTPUT
+        echo "MINOR=$(echo $VERSION | cut -d. -f1,2)" >> $GITHUB_OUTPUT
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: ./router
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.MINOR }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.MAJOR }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Update Helm chart version
+      run: |
+        # Update Chart.yaml version
+        sed -i "s/^version: .*/version: ${{ steps.version.outputs.VERSION }}/" ${{ env.HELM_CHART_PATH }}/Chart.yaml
+        sed -i "s/^appVersion: .*/appVersion: \"${{ steps.version.outputs.VERSION }}\"/" ${{ env.HELM_CHART_PATH }}/Chart.yaml
+        
+        # Update values.yaml image tag
+        sed -i "s|repository: .*|repository: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}|" ${{ env.HELM_CHART_PATH }}/values.yaml
+        sed -i "s/tag: .*/tag: \"${{ steps.version.outputs.VERSION }}\"/" ${{ env.HELM_CHART_PATH }}/values.yaml
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v4.3.0
+      with:
+        version: 'v3.13.3'
+
+    - name: Lint Helm
+      run: |
+        helm lint ${{ env.HELM_CHART_PATH }}
+
+    - name: Download dependencies
+      run: helm dependency update ${{ env.HELM_CHART_PATH }}
+
+    - name: Package Helm chart
+      run: |
+        helm package ${{ env.HELM_CHART_PATH }} -d .deploy
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ steps.version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+        body: |
+          ## Changes in this Release
+          
+          ### Docker Image
+          - Image: `${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.VERSION }}`
+          
+          ### Helm Chart
+          - Chart Version: `${{ steps.version.outputs.VERSION }}`
+          - App Version: `${{ steps.version.outputs.VERSION }}`
+          
+          ### Installation
+          ```bash
+          helm repo add router https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+          helm repo update
+          helm install router router/router --version ${{ steps.version.outputs.VERSION }}
+          ```
+
+    - name: Upload Helm chart to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: .deploy/router-${{ steps.version.outputs.VERSION }}.tgz
+        asset_name: router-${{ steps.version.outputs.VERSION }}.tgz
+        asset_content_type: application/gzip
+
+    - name: Checkout gh-pages branch
+      uses: actions/checkout@v4
+      with:
+        ref: gh-pages
+        path: gh-pages
+
+    - name: Update Helm repository index
+      run: |
+        cp .deploy/*.tgz gh-pages/
+        cd gh-pages
+        helm repo index . --url https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+        git config user.name "${{ github.actor }}"
+        git config user.email "${{ github.actor }}@users.noreply.github.com"
+        git add .
+        git commit -m "Update Helm repository with version ${{ steps.version.outputs.VERSION }}"
+        git push
+
+  update-argocd-apps:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract version
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Update ArgoCD applications
+      run: |
+        # Update router application to use new chart version
+        sed -i "s/targetRevision: .*/targetRevision: ${{ steps.version.outputs.VERSION }}/" k8s/argocd/applications/router.yaml
+        
+        # Commit changes
+        git config user.name "${{ github.actor }}"
+        git config user.email "${{ github.actor }}@users.noreply.github.com"
+        git add k8s/argocd/applications/router.yaml
+        git commit -m "chore: update ArgoCD to use router v${{ steps.version.outputs.VERSION }}"
+        git push origin HEAD:main

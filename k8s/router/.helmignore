@@ -1,0 +1,58 @@
+# Common VCS dirs
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+
+# Common backup files
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+
+# Various IDEs
+.project
+.idea/
+*.tmproj
+.vscode/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Helm specific
+.helmignore
+*.tgz
+charts/*.tgz
+requirements.lock
+
+# Documentation
+*.md
+LICENSE
+OWNERS
+
+# CI/CD
+.gitlab-ci.yml
+.travis.yml
+.github/
+
+# Testing
+tests/
+test-values.yaml
+*-test.yaml
+
+# Examples
+examples/
+
+# Build artifacts
+dist/
+build/

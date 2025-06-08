@@ -1,0 +1,50 @@
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+
+# Backup files
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+
+# IDEs
+.project
+.idea/
+*.tmproj
+.vscode/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Helm specific
+.helmignore
+*.tgz
+charts/*.tgz
+requirements.lock
+
+# Documentation
+*.md
+LICENSE
+OWNERS
+
+# Testing
+tests/
+test-values.yaml
+values-cell-*.yaml
+deployment-script.sh
+
+# Build artifacts
+dist/
+build/
