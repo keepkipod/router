@@ -44,11 +44,6 @@ jobs:
         with:
           # The prefix to use to identify tags
           tag_prefix: "v"
-          # A string which, if present in a git commit, indicates that a change represents a
-          # major (breaking) change, supports regular expressions wrapped with '/'
-          major_pattern: "(MAJOR)"
-          # Same as above except indicating a minor change, supports regular expressions wrapped with '/'
-          minor_pattern: "(MINOR)"
           # A string to determine the format of the version output
           version_format: "${major}.${minor}.${patch}"
           # Optional path to check for changes. If any changes are detected in the path the
@@ -56,8 +51,6 @@ jobs:
           change_path: "router k8s"
           # If this is set to true, *every* commit will be treated as a new version.
           bump_each_commit: true
-          # If true, the body of commits will also be searched for major/minor patterns to determine the version type.
-          search_commit_body: false
 
   lint-and-test:
     name: Lint and Test
