@@ -24,3 +24,5 @@ networkPolicy:
 so I can get on with all other stuff
 
 Still not sure why the apps are being deployed right away and not waiting to become ready before moving on to next sync-wave
+
+Got into troubles with passing over the semver over to the right event PR vs push to branch, will skip for now
