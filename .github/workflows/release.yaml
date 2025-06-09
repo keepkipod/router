@@ -37,6 +37,23 @@ jobs:
       - name: Checkout tag
         run: git checkout "v${{ inputs.version }}"
         
+      - name: Update Helm Chart image tag
+        run: |
+          echo "📝 Updating image tag in values.yaml to ${{ inputs.version }}"
+          
+          # Update the image tag in values.yaml
+          sed -i 's|tag: ".*"|tag: "${{ inputs.version }}"|' ${{ env.HELM_CHART_PATH }}/values.yaml
+          
+          # Verify the change
+          echo "✅ Updated values.yaml:"
+          grep -A2 "image:" ${{ env.HELM_CHART_PATH }}/values.yaml
+          
+          # Also update Chart.yaml appVersion
+          sed -i 's|appVersion: ".*"|appVersion: "${{ inputs.version }}"|' ${{ env.HELM_CHART_PATH }}/Chart.yaml
+          
+          echo "✅ Updated Chart.yaml:"
+          grep -E "version:|appVersion:" ${{ env.HELM_CHART_PATH }}/Chart.yaml
+
       - name: Setup Helm
         uses: azure/setup-helm@v4
         with:
