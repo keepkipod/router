@@ -19,13 +19,13 @@ jobs:
     permissions:
       contents: write
       packages: write
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+
       - name: Verify tag exists
         run: |
           if ! git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
@@ -33,10 +33,10 @@ jobs:
             echo "Please create the tag first with: git tag v${{ inputs.version }} && git push origin v${{ inputs.version }}"
             exit 1
           fi
-          
+
       - name: Checkout tag
         run: git checkout "v${{ inputs.version }}"
-        
+
       - name: Update Helm Chart image tag
         run: |
           echo "📝 Updating image tag in values.yaml to ${{ inputs.version }}"
@@ -58,57 +58,81 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: 'latest'
-          
+
       - name: Package Helm Chart
         run: |
           mkdir -p .deploy || true
           cd .deploy
           helm package ../${{ env.HELM_CHART_PATH }} --version ${{ inputs.version }} --app-version ${{ inputs.version }}
-          
+
       - name: Generate checksums
         run: |
           cd .deploy
           sha256sum *.tgz > checksums.txt
-          
+
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd .deploy
-          
+
           # Generate release notes
           RELEASE_NOTES=$(cat << EOF
           ## 🚀 Release ${{ inputs.version }}
-          
+
           ### 🐳 Docker Image
           - Registry: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`
           - Tags: \`${{ inputs.version }}\`, \`latest\`
-          
+
           ### ⚓ Helm Chart
           - Chart: \`router\`
           - Version: \`${{ inputs.version }}\`
           - App Version: \`${{ inputs.version }}\`
-          
+
           ### 📦 Installation
-          
+
           \`\`\`bash
           # Install directly from OCI registry
           helm install router \\
             oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \\
             --version ${{ inputs.version }}
-          
+
           # Or pull first and inspect
           helm pull oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \\
             --version ${{ inputs.version }}
           \`\`\`
+
+          ### 🔧 Using with ArgoCD
+
+          Update your ArgoCD application to use the new version:
           
+          \`\`\`yaml
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: router
+            namespace: argocd
+          spec:
+            source:
+              repoURL: ghcr.io/keepkipod
+              chart: router
+              targetRevision: ${{ inputs.version }}
+          \`\`\`
+
+          Or if using Git source, the image tag has been updated to:
+          \`\`\`yaml
+          image:
+            repository: ghcr.io/keepkipod/router
+            tag: "${{ inputs.version }}"
+          \`\`\`
+
           ### 📋 Checksums
           \`\`\`
           $(cat checksums.txt)
           \`\`\`
           EOF
           )
-          
+
           # Create release with correct tag
           gh release create \
             "v${{ inputs.version }}" \
@@ -117,11 +141,38 @@ jobs:
             --notes "$RELEASE_NOTES" \
             --verify-tag \
             *.tgz checksums.txt
-            
+
       - name: Push Helm Chart to OCI Registry
         run: |
           cd .deploy
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
           helm push router-${{ inputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
 
-      
+      - name: Update ArgoCD Application
+        run: |
+          echo "📝 Updating ArgoCD application to use version ${{ inputs.version }}"
+          
+          # Configure git
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          
+          # Checkout main branch
+          git checkout main
+          git pull origin main
+          
+          # Update the targetRevision in the ArgoCD application manifest
+          sed -i 's|targetRevision: [0-9]\+\.[0-9]\+\.[0-9]\+|targetRevision: ${{ inputs.version }}|' k8s/argocd/applications/router.yaml
+          
+          # Verify the change
+          echo "✅ Updated router.yaml:"
+          grep -A1 "targetRevision:" k8s/argocd/applications/router.yaml
+          
+          # Commit and push the change
+          git add k8s/argocd/applications/router.yaml
+          git commit -m "chore: update router to version ${{ inputs.version }}" || echo "No changes to commit"
+          
+          # Push the changes
+          git push origin main || echo "Failed to push changes"
+          
+          echo "✅ ArgoCD application updated to use version ${{ inputs.version }}"
+          echo "ArgoCD will automatically sync and deploy the new version if auto-sync is enabled."
