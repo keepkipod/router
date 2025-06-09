@@ -24,3 +24,51 @@ networkPolicy:
 so I can get on with all other stuff
 
 Still not sure why the apps are being deployed right away and not waiting to become ready before moving on to next sync-wave
+
+
+For conclusion, what could be done better:
+Missing:
+
+Some missing CI/CD pipeline
+- How to implement: Add GitHub Actions workflow with:
+  - Ssecurity scans
+  - Semantic versioning with automatic releases
+  - Update ArgoCD app manifests with new image tags
+
+Weak security implementation
+- How to implement: 
+  - Use Sealed Secrets operator for encrypted API keys
+  - Enable NetworkPolicies (fix DNS issues first)
+  - Better RBAC policies for service accounts
+  - Use distroless images
+
+Limited high availability
+- How to implement:
+  - Increase router replicas to 3 minimum
+  - Configure proper PodDisruptionBudgets
+  - Add anti-affinity rules to spread pods across nodes
+  - Implement circuit breakers in router code
+
+Could setup Service Mesh
+- How to implement:
+  - Deploy Istio for:
+    - Automatic mTLS
+    - Advanced traffic management
+    - Built-in observability
+    - Circuit breaking/retries
+
+No rate limiting
+- How to implement:
+  - Add rate limiting per API key in router
+
+Incomplete testing strategy
+- How to implement:
+  - Add integration tests with Kind in CI
+  - Implement load testing with k6/Locust
+  - Add chaos engineering tests
+
+Basic oservability
+- How to implement:
+  - Add distributed tracing with Jaeger
+  - Implement structured logging with Loki
+  - Create SLI/SLO dashboards
