@@ -33,7 +33,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for version calculation
+          fetch-depth: 0
 
       - name: Get latest tag
         id: latest_tag
@@ -107,22 +107,22 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-    #   - name: Run linting
-    #     run: |
-    #       cd router
-    #       # Run black formatter check
-    #       black --check --diff src/
+      # - name: Run linting
+      #   run: |
+      #     cd router
+      #     # Run black formatter check
+      #     black --check --diff src/
           
-    #       # Run flake8 linter
-    #       flake8 src/ --count --statistics
+      #     # Run flake8 linter
+      #     flake8 src/ --count --statistics
           
-    #       # Run mypy type checker
-    #       mypy src/ --ignore-missing-imports
+      #     # Run mypy type checker
+      #     mypy src/ --ignore-missing-imports
 
-    #   - name: Run tests
-    #     run: |
-    #       cd router
-    #       PYTHONPATH=src pytest tests/ -v
+      # - name: Run tests
+      #   run: |
+      #     cd router
+      #     PYTHONPATH=src pytest tests/ -v
           
           # TODO: With more time, would implement:
           # - Code coverage with pytest-cov and Codecov integration
@@ -182,6 +182,39 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Create Release Tag
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          TAG_NAME="v${VERSION}"
+          
+          echo "Checking if tag ${TAG_NAME} already exists..."
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG_NAME}"; then
+            echo "Tag ${TAG_NAME} already exists, skipping tag creation"
+          else
+            echo "Creating tag ${TAG_NAME}..."
+            
+            # Configure git
+            git config user.name "${{ github.actor }}"
+            git config user.email "${{ github.actor }}@users.noreply.github.com"
+            
+            # Create annotated tag
+            git tag -a "${TAG_NAME}" -m "Release version ${VERSION}
+            
+            Automated release from CI pipeline
+            
+            Docker image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
+            Commit: ${{ github.sha }}"
+            
+            # Push tag to trigger release workflow
+            git push origin "${TAG_NAME}"
+            
+            echo "✅ Created and pushed tag ${TAG_NAME}"
+            echo "This will trigger the release workflow to create the official release"
+          fi
 
       - name: Add PR comment
         if: github.event_name == 'pull_request'
