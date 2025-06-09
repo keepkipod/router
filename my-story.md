@@ -25,6 +25,7 @@ so I can get on with all other stuff
 
 Still not sure why the apps are being deployed right away and not waiting to become ready before moving on to next sync-wave
 
+Spent far too much time on fixing the release workflow so I haven't made it to fix the argocd app of apps
 
 For conclusion, what could be done better:
 Missing:
