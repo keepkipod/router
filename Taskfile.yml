@@ -73,7 +73,7 @@ tasks:
   build-app:
     cmds:
       - docker build -t {{.APP_NAME}}:6.0.0 ./router
-      - kind load docker-image {{.APP_NAME}}:latest --name {{.CLUSTER_NAME}}
+      - kind load docker-image {{.APP_NAME}}:6.0.0 --name {{.CLUSTER_NAME}}
 
   deploy-app:
     cmds:
