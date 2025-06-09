@@ -169,7 +169,7 @@ jobs:
           
           # Commit  and push the change
           git add k8s/argocd/applications/router.yaml
-          git commit -am "chore: update router to version ${{ inputs.version }}" || echo "No changes to commit"
+          git commit -m "chore: update router to version ${{ inputs.version }}" || echo "No changes to commit"
           
           # Push the changes
           git push origin main || echo "Failed to push changes"
