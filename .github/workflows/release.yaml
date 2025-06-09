@@ -42,7 +42,7 @@ jobs:
     - name: Extract version
       id: version
       run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
+        VERSION="${{ inputs.tag }}"
         echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
         echo "MAJOR=$(echo $VERSION | cut -d. -f1)" >> $GITHUB_OUTPUT
         echo "MINOR=$(echo $VERSION | cut -d. -f1,2)" >> $GITHUB_OUTPUT
