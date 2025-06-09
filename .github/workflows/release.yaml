@@ -11,7 +11,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: keepkipod/router
-  HELM_CHART_PATH: ./k8s/router
+  HELM_CHART_PATH: k8s/router
 
 jobs:
   release:
