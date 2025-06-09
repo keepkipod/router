@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [version, lint-and-test]
     permissions:
-      contents: read
+      contents: write
       packages: write
       pull-requests: write  # For PR comments
     steps:
