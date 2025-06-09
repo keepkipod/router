@@ -167,9 +167,9 @@ jobs:
           echo "✅ Updated router.yaml:"
           grep -A1 "targetRevision:" k8s/argocd/applications/router.yaml
           
-          # Commit and push the change
+          # Commit  and push the change
           git add k8s/argocd/applications/router.yaml
-          git commit -m "chore: update router to version ${{ inputs.version }}" || echo "No changes to commit"
+          git commit -am "chore: update router to version ${{ inputs.version }}" || echo "No changes to commit"
           
           # Push the changes
           git push origin main || echo "Failed to push changes"
