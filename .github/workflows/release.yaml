@@ -46,7 +46,7 @@ jobs:
         run: |
           mkdir -p .deploy || true
           cd .deploy
-          helm package ${{ env.HELM_CHART_PATH }} --version ${{ inputs.version }} --app-version ${{ inputs.version }}
+          helm package ../${{ env.HELM_CHART_PATH }} --version ${{ inputs.version }} --app-version ${{ inputs.version }}
           
       - name: Generate checksums
         run: |
