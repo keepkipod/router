@@ -105,6 +105,6 @@ jobs:
         run: |
           cd .deploy
           echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-          helm push router-${{ inputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+          helm push router-${{ inputs.version }}.tgz oci://${{ env.REGISTRY }}/${{ github.repository_owner }}-helm-chart
 
       
