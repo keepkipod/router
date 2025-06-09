@@ -5,12 +5,19 @@ WORKDIR /app
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
+    gcc=4:12.2.0-3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
+
+FROM builder AS security
+RUN pip install safety bandit
+COPY requirements.txt .
+RUN safety check --json --file=requirements.txt
+COPY src/ ./
+RUN bandit -r . -f json -o bandit-report.json
 
 # Final stage
 FROM python:3.13-slim
