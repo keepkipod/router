@@ -12,7 +12,7 @@ spec:
   source:
     repoURL: ghcr.io/keepkipod
     chart: router
-    targetRevision: 3.2.30
+    targetRevision: 3.2.34
     path: k8s/router
     helm:
       valueFiles:
