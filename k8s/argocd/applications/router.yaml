@@ -10,7 +10,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ghcr.io/keepkipod/router
+    repoURL: ghcr.io/keepkipod
+    chart: router
     targetRevision: 3.2.21
     path: k8s/router
     helm:
