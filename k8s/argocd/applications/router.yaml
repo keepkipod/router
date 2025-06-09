@@ -14,9 +14,6 @@ spec:
     chart: router
     targetRevision: 3.2.30
     path: k8s/router
-    helm:
-      valueFiles:
-        - values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: router
