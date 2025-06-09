@@ -11,7 +11,7 @@ spec:
   project: default
   source:
     repoURL: ghcr.io/keepkipod/router
-    targetRevision: 3.2.21
+    targetRevision: 3.2.17
     path: k8s/router
     helm:
       valueFiles:
