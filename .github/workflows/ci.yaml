@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'router/**'
-      - 'k8s/**'
       - '.github/workflows/ci.yaml'
 
   pull_request:
