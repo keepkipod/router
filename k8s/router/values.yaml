@@ -5,9 +5,9 @@
 replicaCount: 1
 
 image:
-  repository: router
+  repository: ghcr.io/keepkipod/router
   pullPolicy: IfNotPresent
-  tag: "latest"
+  tag: "3.2.7"
 
 imagePullSecrets: []
 nameOverride: ""
